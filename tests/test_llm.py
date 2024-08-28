@@ -8,7 +8,7 @@ from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 
 @pytest.mark.asyncio
 async def test_chat_engine():
-    llm = AsyncCerebrasEngine(model="llama3.1-70b")
+    llm = AsyncCerebrasEngine(model="llama3.1-8b")
 
     class Response(BaseModel):
         name: str
