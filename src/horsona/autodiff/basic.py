@@ -1,7 +1,7 @@
 import functools
 import json
 from abc import ABC, abstractmethod
-from typing import TypeVar, Union
+from typing import Optional, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -45,14 +45,6 @@ class HorseVariable:
         """
         Backpropagate gradients through the computation graph starting from this
         variable.
-
-        :param engine: The backward engine to use for gradient computation. If not
-                       provided, the global engine will be used.
-        :type engine: EngineLM, optional
-
-        :raises Exception: If no backward engine is provided and no global engine is
-                           set.
-        :raises Exception: If both an engine is provided and the global engine is set.
         """
         topo: list[HorseVariable] = []
         visited = set()
@@ -123,10 +115,19 @@ class HorseFunction(ABC):
 class HorseModule(ABC):
     """Abstract module class with parameters akin to PyTorch's nn.Module."""
 
-    parameters: list[HorseVariable]
+    def parameters(self):
+        visited = set([self])
+        for value in self.__dict__.values():
+            if isinstance(value, HorseVariable):
+                yield value
+            elif isinstance(value, HorseModule):
+                if value in visited:
+                    continue
+                yield from value.parameters()
+
 
     async def zero_grad(self):
-        for p in self.parameters:
+        for p in self.parameters():
             await p.reset_gradients()
 
     @abstractmethod
@@ -139,7 +140,7 @@ class HorseModule(ABC):
 
 class HorseOptimizer:
     def __init__(self, parameters):
-        self.parameters: list[HorseVariable] = parameters
+        self.parameters: set[HorseVariable] = set(parameters)
 
     async def step(self):
         for param in self.parameters:
