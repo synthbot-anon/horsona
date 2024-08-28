@@ -1,7 +1,5 @@
 import functools
 
-from pydantic import BaseModel
-
 from .basic import HorseModule, HorseType, HorseVariable
 
 
