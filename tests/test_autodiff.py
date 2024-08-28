@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from horsona.autodiff import HorseFunction, HorseOptimizer, HorseVariable
 from horsona.autodiff.losses import ConstantLoss
+from horsona.autodiff.variables import TextVariable
 from horsona.llm import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 
@@ -12,25 +13,6 @@ from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 @pytest.fixture(scope="module")
 def reasoning_llm():
     yield AsyncCerebrasEngine(model="llama3.1-70b")
-
-
-class ConstantText(HorseVariable):
-    def __init__(self, value: str, updater_llm: AsyncLLMEngine = None):
-        super().__init__(value=value)
-        self.updater_llm = updater_llm
-
-    async def apply_gradients(self):
-        class UpdatedText(BaseModel):
-            updated_text: str
-
-        updated_text = await self.updater_llm.query_object(
-            UpdatedText,
-            TEXT=self,
-            FEEDBACK=self.gradients,
-            TASK="Update the TEXT based on the FEEDBACK.",
-        )
-
-        self.value = updated_text.updated_text
 
 
 class NameExtractor(HorseFunction):
@@ -92,7 +74,7 @@ class NameExtractor(HorseFunction):
 
 @pytest.mark.asyncio
 async def test_autodiff(reasoning_llm):
-    input_text = ConstantText("My name is Luna", reasoning_llm)
+    input_text = TextVariable("My name is Luna", reasoning_llm)
     extracted_name = await NameExtractor()(reasoning_llm, input_text)
     name_loss_fn = ConstantLoss("The name should be Celestia")
     title_loss_fn = ConstantLoss("The title should be Princess")
@@ -103,6 +85,7 @@ async def test_autodiff(reasoning_llm):
         await title_loss_fn(extracted_name)
     )
 
+    await optimizer.zero_grad()
     await loss.backward()
     await optimizer.step()
 
