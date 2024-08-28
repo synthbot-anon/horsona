@@ -144,7 +144,7 @@ class HorseOptimizer:
 
     async def step(self):
         for param in self.parameters:
-            if param.gradients:
+            if param.requires_grad and param.gradients:
                 await param.apply_gradients()
 
     async def zero_grad(self):
