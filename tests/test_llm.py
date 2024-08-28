@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 from pydantic import BaseModel
 
@@ -12,7 +10,7 @@ async def test_chat_engine():
 
     class Response(BaseModel):
         name: str
-    
+
     response = await llm.query_object(
         Response,
         NAME="Celestia",

@@ -10,20 +10,20 @@ from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 
 
 @pytest.fixture(scope="module")
-def extraction_llm():
+def reasoning_llm():
     yield AsyncCerebrasEngine(model="llama3.1-70b")
 
 
 class ConstantText(HorseVariable):
-    def __init__(self, llm: AsyncLLMEngine, value: str):
+    def __init__(self, value: str, updater_llm: AsyncLLMEngine = None):
         super().__init__(value=value)
-        self.llm = llm
+        self.updater_llm = updater_llm
 
     async def apply_gradients(self):
         class UpdatedText(BaseModel):
             updated_text: str
 
-        updated_text = await self.llm.query_object(
+        updated_text = await self.updater_llm.query_object(
             UpdatedText,
             TEXT=self,
             FEEDBACK=self.gradients,
@@ -91,9 +91,9 @@ class NameExtractor(HorseFunction):
 
 
 @pytest.mark.asyncio
-async def test_autodiff(extraction_llm):
-    input_text = ConstantText(extraction_llm, value="My name is Luna")
-    extracted_name = await NameExtractor().forward(extraction_llm, input_text)
+async def test_autodiff(reasoning_llm):
+    input_text = ConstantText("My name is Luna", reasoning_llm)
+    extracted_name = await NameExtractor().forward(reasoning_llm, input_text)
     name_loss_fn = ConstantLoss("The name should be Celestia")
     title_loss_fn = ConstantLoss("The title should be Princess")
     optimizer = HorseOptimizer([input_text])
