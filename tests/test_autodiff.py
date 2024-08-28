@@ -93,14 +93,14 @@ class NameExtractor(HorseFunction):
 @pytest.mark.asyncio
 async def test_autodiff(reasoning_llm):
     input_text = ConstantText("My name is Luna", reasoning_llm)
-    extracted_name = await NameExtractor().forward(reasoning_llm, input_text)
+    extracted_name = await NameExtractor()(reasoning_llm, input_text)
     name_loss_fn = ConstantLoss("The name should be Celestia")
     title_loss_fn = ConstantLoss("The title should be Princess")
     optimizer = HorseOptimizer([input_text])
 
     loss = (
-        await name_loss_fn.forward(extracted_name) +
-        await title_loss_fn.forward(extracted_name)
+        await name_loss_fn(extracted_name) +
+        await title_loss_fn(extracted_name)
     )
 
     await loss.backward()
