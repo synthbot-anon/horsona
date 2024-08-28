@@ -31,7 +31,7 @@ def _normalize(obj):
         return obj
 
 
-def _serialize(obj):
+def _serialize(obj, prefix, indent):
     """
     Serialize an object to a JSON string.
 
@@ -44,7 +44,22 @@ def _serialize(obj):
     Returns:
         str: The JSON string representation of the object.
     """
-    return json.dumps(_normalize(obj), indent=2)
+    if isinstance(obj, dict):
+        result = []
+        for key, value in obj.items():
+            value_str = _serialize(value, f"{prefix}.{key}", indent + 1)
+            result.append(f'\n{"  " * indent}<{key}>{value_str}</{key}>')
+        return "".join(result) + "\n"
+    elif isinstance(obj, list):
+        result = []
+        for i, value in enumerate(obj):
+            value_str = _serialize(value, prefix, indent + 1)
+            result.append(
+                f'\n{"  " * indent}<{prefix}.{i}>{value_str}{"  " * indent}</{prefix}.{i}>'
+            )
+        return "".join(result) + "\n"
+    else:
+        return f"{xml_escape(str(obj))}"
 
 
 def compile_user_prompt(**kwargs):
@@ -61,7 +76,7 @@ def compile_user_prompt(**kwargs):
     """
     prompt_pieces = []
     for key, value in kwargs.items():
-        value = xml_escape(_serialize(value))
+        value = _serialize(_normalize(value), key, 1)
         prompt_pieces.append(f"<{key}>{value}</{key}>")
 
     return "\n\n".join(prompt_pieces)
