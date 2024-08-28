@@ -14,7 +14,7 @@ S = TypeVar("S", bound=Union[str, T])
 
 
 class ChatEngine(LLMEngine, ABC):
-    def __init__(self, fallback: "LLMEngine" = None):
+    def __init__(self, *args, **kwargs):
         """
         Initialize the LLMEngine.
 
@@ -22,7 +22,7 @@ class ChatEngine(LLMEngine, ABC):
             fallback (LLMEngine, optional): Another LLMEngine instance to use as a fallback
                                             if this engine's queries fail. Defaults to None.
         """
-        self.fallback = fallback
+        super().__init__(*args, **kwargs)
 
     @abstractmethod
     def query(self, **kwargs) -> str:
