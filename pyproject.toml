@@ -7,9 +7,18 @@ authors = [
   "Synthbot Anon <synthbot.anon@gmail.com>"
 ]
 
+
 [tool.poetry.dependencies]
 python = "^3.11"
 
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+pytest-asyncio = "^0.24.0"
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["poetry-core"]
