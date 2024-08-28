@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "horsona"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+  "Synthbot Anon <synthbot.anon@gmail.com>"
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
