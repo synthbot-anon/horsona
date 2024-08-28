@@ -19,14 +19,14 @@ class ConstantText(HorseVariable):
         super().__init__(value=value)
         self.llm = llm
 
-    async def apply_gradients(self, gradients):
+    async def apply_gradients(self):
         class UpdatedText(BaseModel):
             updated_text: str
 
         updated_text = await self.llm.query_object(
             UpdatedText,
             TEXT=self,
-            FEEDBACK=gradients,
+            FEEDBACK=self.gradients,
             TASK="Update the TEXT based on the FEEDBACK.",
         )
 
@@ -102,7 +102,7 @@ async def test_autodiff(extraction_llm):
         await name_loss_fn.forward(extracted_name) +
         await title_loss_fn.forward(extracted_name)
     )
-    
+
     await loss.backward()
     await optimizer.step()
 
