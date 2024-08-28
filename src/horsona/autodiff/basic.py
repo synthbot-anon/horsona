@@ -11,7 +11,7 @@ class HorseVariable:
     def __init__(
         self,
         value: HorseType,
-        predecessors: list["HorseVariable"] = [],
+        predecessors: set["HorseVariable"] = set(),
         requires_grad: bool = True,
     ):
         self.value = value
@@ -73,7 +73,7 @@ class HorseVariable:
 
         result = HorseVariable(
             value=[self.value, other.value],
-            predecessors=[self, other],
+            predecessors=set([self, other]),
         )
         result.grad_fn = functools.partial(sum_grad_fn, self, other)
         return result
