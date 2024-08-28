@@ -3,6 +3,8 @@ from xml.sax.saxutils import escape as xml_escape
 
 from pydantic import BaseModel
 
+from horsona.autodiff import HorseVariable
+
 
 def _normalize(obj):
     """
@@ -17,6 +19,8 @@ def _normalize(obj):
     Returns:
         The normalized version of the object.
     """
+    if isinstance(obj, HorseVariable):
+        return _normalize(obj.value)
     if isinstance(obj, BaseModel):
         return obj.model_dump()
     elif isinstance(obj, dict):
