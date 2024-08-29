@@ -14,10 +14,12 @@ Here's a candidate list:
 - Support for RPG functionality, like HP, XP, and dice rolls based on a rule book
 - Transparent adaptation of video generation prompts to the API & model in use
 - Making & rolling back high level edits to character cards
+- Support continuing prompts, like non-chat GPTs
+- Support jailbreaks
 
 # Contributing
 1. Check the [open issues](https://github.com/synthbot-anon/horsona/issues) for something you can work on. If you want to work on something new, post in the thread so we can sanity check it.
 2. Post in the thread to claim an issue. You can optionally include your github account in the post so I know whom to assign the issue to.
-3. If you're implementing new functionality, put the code in the `src/horsona/contributions` and `tests/contributions` folders. Make sure to add at least one test case so it's clear how to use your code.
+3. If you're implementing new functionality, create a new folder in `src/horsona/contributions` and `tests/contributions` folders, and put your code there. Make sure to add at least one test case so it's clear how to use your code.
 4. Make sure your code works with `poetry run pytest path/to/test/file.py`. If you're modifying something outside of `contributions`, make sure to run the relevant tests.
 5. If you have a github account, submit a pull request. Otherwise, post your code somehow in the thread.
