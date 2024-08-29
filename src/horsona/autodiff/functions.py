@@ -52,11 +52,11 @@ class TextExtractor(HorseFunction):
             input_name: str
             relevant_feedback: list[str]
 
-        class FeedbackAssignmnets(BaseModel):
+        class FeedbackAssignments(BaseModel):
             assignments: list[SuggestedAssignment]
         
         gradients = await self.llm.query_object(
-            FeedbackAssignmnets,
+            FeedbackAssignments,
             INPUTS=[{'name': k, 'value': v} for k,v in kwargs.items() if isinstance(v, HorseVariable) and v.requires_grad],
             RESULT=result,
             FEEDBACK=result.gradients,
