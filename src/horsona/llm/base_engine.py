@@ -254,3 +254,22 @@ class AsyncLLMEngine(ABC):
                 "Invalid structure type. Must be a string or a Pydantic model. "
                 f"Got: {type(structure)}"
             )
+
+    @abstractmethod
+    async def query_continuation(self, prompt: str, **kwargs) -> str:
+        """
+        Query the LLM to continue the prompt.
+
+        All kwargs are passed to the underlying API.
+
+        Args:
+            prompt (str): The prompt to continue.
+            **kwargs: Arbitrary keyword arguments for the query.
+
+        Returns:
+            str: The continuation of the prompt.
+
+        Raises:
+            Exception: If the query fails and there's no fallback engine.
+        """
+        pass

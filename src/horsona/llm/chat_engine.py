@@ -123,6 +123,26 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
 
         return parse_block_response(block_type, response)
 
+    def query_continuation(self, prompt: str, **kwargs) -> str:
+        try:
+            response = self.query(
+                messages=[
+                    {"role": "assistant", "content": prompt},
+                    {
+                        "role": "user",
+                        "content": "Please continue. Just the continuation, nothing else.",
+                    },
+                ],
+                **kwargs,
+            )
+        except Exception:
+            if self.fallback:
+                return self.fallback.query_continuation(prompt, **kwargs)
+            else:
+                raise
+
+        return response
+
 
 def _generate_block_query_messages(block_type: str, prompt_args):
     """
