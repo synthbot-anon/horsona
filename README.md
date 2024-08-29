@@ -4,73 +4,15 @@ an organized collection of features that a pony chatbot might need in the hopes 
 future chatbot developers will have a easier time with it.
 
 I don't know yet what functionality will be in here or how it will be organized.
-Here's a candidate list just to explain the idea.
+Here's a candidate list:
+- Video generation (via API) alongside text generation
+- Plugins for various interfaces (SillyTavern, Risu, etc.)
+- Automated character card adjustments
+- Lorebook generation from large text corpora
+- Splitting prompts into multiple calls for more reliable generation
+- Simultaneously accounting for multiple kinds of data
+- In-universe and retrospective consistency checks
+- Organizing text corpora into compatible universes
+- Support for RPG functionality, like HP, XP, and dice rolls based on a rule book
 
-```
-horsona/
-├── nlp/
-│   ├── basic/
-│   │   ├── intent_recognition.py
-│   │   ├── entity_extraction.py
-│   │   └── sentiment_analysis.py
-│   ├── advanced/
-│   │   ├── context_understanding.py
-│   │   ├── emotion_detection.py
-│   │   └── tone_analyzer.py
-│   ├── personality_extraction/
-│   │   ├── script_analyzer.py
-│   │   ├── story_processor.py
-│   │   ├── structured_data_extractor.py
-│   │   └── specification_interpreter.py
-│   ├── language_models/
-│   │   ├── model_interface.py
-│   │   ├── fine_tuning.py
-│   │   └── prompt_engineering.py
-│   ├── personality_application/
-│   │   ├── message_modifier.py
-│   │   ├── perspective_analysis.py
-│   │   └── context_expander.py
-│   ├── text_generation/
-│   │   ├── narrative_generator.py
-│   │   ├── dialogue_creator.py
-│   │   └── backstory_builder.py
-│   └── utils/
-│       ├── text_preprocessing.py
-│       ├── language_detection.py
-│       └── text_summarization.py
-│
-└── memory/
-    ├── short_term/
-    │   ├── conversation_context.py
-    │   ├── recent_interactions.py
-    │   └── working_memory.py
-    ├── long_term/
-    │   ├── user_profiles.py
-    │   ├── conversation_history.py
-    │   ├── knowledge_base.py
-    │   └── learned_behaviors.py
-    ├── episodic/
-    │   ├── event_memory.py
-    │   └── narrative_memory.py
-    ├── semantic/
-    │   ├── concept_network.py
-    │   └── fact_storage.py
-    ├── emotional/
-    │   ├── mood_tracker.py
-    │   └── sentiment_memory.py
-    ├── storage/
-    │   ├── in_memory.py
-    │   ├── database.py
-    │   └── vector_store.py
-    ├── retrieval/
-    │   ├── similarity_search.py
-    │   ├── context_based.py
-    │   └── time_based.py
-    ├── management/
-    │   ├── memory_consolidation.py
-    │   ├── forgetting_mechanism.py
-    │   └── importance_scoring.py
-    └── utils/
-        └── memory_indexing.py
-```
 
