@@ -13,6 +13,7 @@ Here's a candidate list:
 - Organizing text corpora into compatible universes
 - Support for RPG functionality, like HP, XP, and dice rolls based on a rule book
 - Transparent adaptation of video generation prompts to the API & model in use
+- Making & rolling back high level edits to character cards
 
 # Contributing
 1. Check the [open issues](https://github.com/synthbot-anon/horsona/issues) for something you can work on. If you want to work on something new, post in the thread so we can sanity check it.
