@@ -19,10 +19,11 @@ def reasoning_llm():
 @pytest.mark.asyncio
 async def test_autodiff(reasoning_llm):
     input_text = TextVariable("My name is Luna", reasoning_llm)
+    name_extractor_fn = TextExtractor(reasoning_llm)
 
     class PonyName(BaseModel):
         name: str
-    extracted_name = await TextExtractor(reasoning_llm)(
+    extracted_name = await name_extractor_fn(
         PonyName,
         TEXT=input_text,
         TASK="Extract the name from the TEXT.",

@@ -88,20 +88,20 @@ class HorseFunction(ABC):
         super().__init__()
 
     async def __call__(self, *args, **kwargs):
-        return await self.forward(*args, **kwargs)
+        result = await self.forward(*args, **kwargs)
+        result.grad_fn = functools.partial(self.backward, result, *args, **kwargs)
+        return result
 
     @abstractmethod
     async def forward(self, *args, **kwargs) -> HorseVariable:
         """Execute the function call and return a Variable result.
         
         This function should return a Variable object that represents the result of the
-        function call. It should also set the .grad_fn attribute of the result Variable.
-        
-        This function and .grad_fn should be async functions."""
+        function call."""
         pass
 
     @abstractmethod
-    async def backward(self, *args, **kwargs):
+    async def backward(self, result: HorseVariable, *args, **kwargs):
         """Set the gradient for all input variables that require a gradient.
 
         This function should add to predecessor.gradients for all predecessors where
@@ -129,13 +129,6 @@ class HorseModule(ABC):
     async def zero_grad(self):
         for p in self.parameters():
             await p.reset_gradients()
-
-    @abstractmethod
-    async def forward(self, *args, **kwargs):
-        pass
-
-    async def __call__(self, *args, **kwargs):
-        return await self.forward(*args, **kwargs)
 
 
 class HorseOptimizer:

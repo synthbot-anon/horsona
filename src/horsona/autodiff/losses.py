@@ -1,24 +1,19 @@
 import functools
 
-from .basic import HorseModule, HorseType, HorseVariable
+from .basic import HorseFunction, HorseType, HorseVariable
 
 
-class ConstantLoss(HorseModule):
+class ConstantLoss(HorseFunction):
     def __init__(self, loss: HorseType):
         self.task = loss
     
-    async def __call__(self, *args: list[HorseVariable]) -> HorseVariable:
-        return await self.forward(*args)
-
-    async def forward(self, *args: list[HorseVariable]) -> HorseVariable:
-        result = HorseVariable(
+    async def forward(self, *args: HorseVariable) -> HorseVariable:
+        return HorseVariable(
             value=self.task,
             predecessors=list(args),
         )
-        result.grad_fn = functools.partial(self.backward, response=result)
-        return result
 
-    async def backward(self, response: HorseVariable):
-        for var in response.predecessors:
+    async def backward(self, response: HorseVariable, *args: HorseVariable):
+        for var in args:
             if var.requires_grad:
                 var.gradients.append(self.task)

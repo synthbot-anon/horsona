@@ -1,2 +1,1 @@
-from .basic import (HorseFunction, HorseModule, HorseOptimizer, HorseType,
-                    HorseVariable)
+from .basic import HorseFunction, HorseOptimizer, HorseType, HorseVariable

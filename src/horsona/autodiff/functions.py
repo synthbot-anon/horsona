@@ -17,17 +17,13 @@ class TextExtractor(HorseFunction):
             **kwargs,
         )
 
-        result = HorseVariable(
+        return HorseVariable(
             value=extraction,
             predecessors=[x for x in kwargs.values() if isinstance(x, HorseVariable)],
         )
 
-        result.grad_fn = functools.partial(self.backward, result, kwargs)
-
-        return result
-
     async def backward(
-        self, result: HorseVariable, kwargs
+        self, result: HorseVariable, model_cls, **kwargs
     ):
         if not result.requires_grad:
             return
