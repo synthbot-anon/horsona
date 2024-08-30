@@ -1,13 +1,19 @@
+from typing import Generator
+
 import pytest
 from pydantic import BaseModel
 
+from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 
 
-@pytest.mark.asyncio
-async def test_chat_engine():
-    llm = AsyncCerebrasEngine(model="llama3.1-8b")
+@pytest.fixture(scope="module")
+def llm() -> Generator[AsyncLLMEngine, None, None]:
+    yield AsyncCerebrasEngine(model="llama3.1-70b")
 
+
+@pytest.mark.asyncio
+async def test_chat_engine(llm: AsyncLLMEngine):
     class Response(BaseModel):
         name: str
 
