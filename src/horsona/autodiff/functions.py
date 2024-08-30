@@ -2,21 +2,23 @@ from pydantic import BaseModel
 
 from horsona.llm.base_engine import AsyncLLMEngine
 
-from .basic import HorseFunction, HorseVariable
+from .basic import HorseFunction, HorseType, HorseVariable
+from .variables import Value
 
 
 class TextExtractor(HorseFunction):
     def __init__(self, llm: AsyncLLMEngine = None):
         self.llm = llm
 
-    async def forward(self, model_cls, **kwargs) -> HorseVariable:
+    async def forward(self, model_cls: type[HorseType], **kwargs) -> Value:
         extraction = await self.llm.query_object(
             model_cls,
             **kwargs,
         )
 
-        return HorseVariable(
+        return Value(
             value=extraction,
+            updater_llm=self.llm,
             predecessors=[x for x in kwargs.values() if isinstance(x, HorseVariable)],
         )
 

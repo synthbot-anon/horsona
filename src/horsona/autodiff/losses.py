@@ -1,17 +1,19 @@
+from horsona.autodiff.variables import Result
+
 from .basic import HorseFunction, HorseType, HorseVariable
 
 
 class ConstantLoss(HorseFunction):
-    def __init__(self, loss: HorseType):
-        self.task = loss
+    def __init__(self, loss: HorseType = None):
+        self.loss = loss
 
-    async def forward(self, *args: HorseVariable) -> HorseVariable:
-        return HorseVariable(
-            value=self.task,
-            predecessors=list(args),
-        )
+    async def forward(
+        self, arg: HorseVariable, loss: HorseType = None
+    ) -> HorseVariable:
+        return Result(loss or self.loss, predecessors=[arg])
 
-    async def backward(self, response: HorseVariable, *args: HorseVariable):
-        for var in args:
-            if var.requires_grad:
-                var.gradients.append(self.task)
+    async def backward(
+        self, result: HorseVariable, arg: HorseVariable, loss: HorseType = None
+    ):
+        if arg.requires_grad:
+            arg.gradients.append(loss or self.loss)

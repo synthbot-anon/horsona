@@ -1,47 +1,19 @@
+import asyncio
 import functools
-import json
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar, Union
+from typing import TypeVar, Union
 
 from pydantic import BaseModel
 
 HorseType = TypeVar("HorseType", bound=Union[BaseModel, dict, int, float, bool, list])
 
 
-async def _convert_to_dict(obj):
-    """
-    Recursively normalize an object for serialization.
-
-    This function handles Pydantic BaseModel instances, dictionaries, and lists.
-    Other types are returned as-is.
-
-    Args:
-        obj: The object to normalize.
-
-    Returns:
-        The normalized version of the object.
-    """
-    if isinstance(obj, HorseVariable):
-        return await obj.dict()
-    if isinstance(obj, BaseModel):
-        return obj.model_dump()
-    elif isinstance(obj, dict):
-        return {k: await _convert_to_dict(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [await _convert_to_dict(v) for v in obj]
-    else:
-        return obj
-
-
-class HorseVariable:
+class HorseVariable(ABC):
     def __init__(
         self,
-        value: HorseType,
         predecessors: set["HorseVariable"] = set(),
         requires_grad: bool = True,
     ):
-        self.value = value
-
         _predecessor_requires_grad = [v for v in predecessors if v.requires_grad]
         if (not requires_grad) and (len(_predecessor_requires_grad) > 0):
             raise Exception(
@@ -55,14 +27,9 @@ class HorseVariable:
         self.predecessors = set(predecessors)
         self.requires_grad = requires_grad
 
-    def __str__(self):
-        if isinstance(self.value, BaseModel):
-            return self.value.model_dump_json(indent=2)
-        else:
-            return json.dumps(self.value, indent=2)
-
-    async def dict(self):
-        return await _convert_to_dict(self.value)
+    @abstractmethod
+    async def json(self):
+        pass
 
     async def apply_gradients(self):
         raise NotImplementedError
@@ -96,14 +63,21 @@ class HorseVariable:
         return self
 
     def __add__(self, other: "HorseVariable"):
+        class Sum(HorseVariable):
+            async def json(self):
+                return [await x.json() for x in self.predecessors]
+
+            async def apply_gradients(self):
+                await asyncio.gather(
+                    self.predecessors[0].apply_gradients(),
+                    self.predecessors[1].apply_gradients(),
+                )
+
         async def sum_grad_fn(a: HorseVariable, b: HorseVariable):
             a.gradients.extend(self.gradients)
             b.gradients.extend(self.gradients)
 
-        result = HorseVariable(
-            value=[self.value, other.value],
-            predecessors=set([self, other]),
-        )
+        result = Sum(predecessors=[self, other])
         result.grad_fn = functools.partial(sum_grad_fn, self, other)
         return result
 

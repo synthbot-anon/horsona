@@ -23,5 +23,7 @@ class AsyncCerebrasEngine(AsyncChatEngine):
         self.client = AsyncCerebras()
 
     async def query(self, **kwargs):
-        response = await self.client.chat.completions.create(model=self.model, **kwargs)
+        response = await self.client.chat.completions.create(
+            model=self.model, timeout=1, **kwargs
+        )
         return response.choices[0].message.content

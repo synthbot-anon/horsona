@@ -13,6 +13,21 @@ T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
 
+def _retry(n=3):
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            for i in range(n):
+                try:
+                    return await func(*args, **kwargs)
+                except Exception:
+                    if i == n - 1:
+                        raise
+
+        return wrapper
+
+    return decorator
+
+
 class AsyncChatEngine(AsyncLLMEngine, ABC):
     def __init__(self, fallback: "AsyncLLMEngine" = None):
         self.fallback = fallback
@@ -30,6 +45,7 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         """
         pass
 
+    @_retry(5)
     async def query_object(self, response_model: type[T], **kwargs) -> T:
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
@@ -39,14 +55,14 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
                 messages=await generate_obj_query_messages(response_model, prompt_args),
                 **api_args,
             )
+            return parse_obj_response(response_model, response)
         except Exception:
             if self.fallback:
                 return await self.fallback.query_object(response_model, **kwargs)
             else:
                 raise
 
-        return parse_obj_response(response_model, response)
-
+    @_retry(5)
     async def query_block(self, block_type: str, **kwargs) -> T:
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
@@ -56,13 +72,12 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
                 messages=_generate_block_query_messages(block_type, prompt_args),
                 **api_args,
             )
+            return parse_block_response(block_type, response)
         except Exception:
             if self.fallback:
                 return await self.fallback.query_block(block_type, **kwargs)
             else:
                 raise
-
-        return parse_block_response(block_type, response)
 
     def query_continuation(self, prompt: str, **kwargs) -> str:
         try:

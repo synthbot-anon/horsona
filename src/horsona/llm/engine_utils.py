@@ -3,8 +3,6 @@ from xml.sax.saxutils import escape as xml_escape
 
 from pydantic import BaseModel
 
-from horsona.autodiff.basic import _convert_to_dict
-
 
 def _convert_to_xml(obj, prefix, indent):
     """
@@ -150,3 +148,28 @@ def parse_block_response(block_type: str, content: str):
     end = content.find("```", start)
 
     return content[start:end].strip()
+
+
+async def _convert_to_dict(obj):
+    """
+    Recursively normalize an object for serialization.
+
+    This function handles Pydantic BaseModel instances, dictionaries, and lists.
+    Other types are returned as-is.
+
+    Args:
+        obj: The object to normalize.
+
+    Returns:
+        The normalized version of the object.
+    """
+    if isinstance(obj, BaseModel):
+        return obj.model_dump()
+    elif isinstance(obj, dict):
+        return {k: await _convert_to_dict(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [await _convert_to_dict(v) for v in obj]
+    elif isinstance(obj, (int, float, str, bool)):
+        return obj
+    else:
+        return await obj.json()

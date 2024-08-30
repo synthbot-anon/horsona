@@ -1,12 +1,12 @@
 import torch
 from transformers import AutoModel, AutoTokenizer
 
-from horsona.memory.rag import RAGModel
+from horsona.memory.embeddings.index import EmbeddingModel
 
 
-class HuggingFaceBGEModel(RAGModel):
+class HuggingFaceBGEModel(EmbeddingModel):
     def __init__(self, model):
-        super().__init__(model)
+        super().__init__()
         self.model = model
         self.tokenizer = AutoTokenizer.from_pretrained(model)
         self.embedding_model = AutoModel.from_pretrained(model)
