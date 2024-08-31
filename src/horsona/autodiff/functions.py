@@ -62,8 +62,6 @@ class TextExtractor(HorseFunction):
             ),
         )
 
-        print(gradients.model_dump_json(indent=2))
-
         for change in gradients.assignments:
             if change.input_name not in kwargs:
                 continue

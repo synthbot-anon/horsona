@@ -86,12 +86,14 @@ class RAGDataset(HorseVariable):
             remove_indices = []
             for change in grad:
                 if isinstance(change, DatasetDelete):
-                    del self.data[change.index]
-                    remove_indices.append(change.index)
-            remove_indices = torch.tensor(remove_indices)
-            retain_indices = torch.ones(len(self.indices), dtype=torch.bool)
-            retain_indices[remove_indices] = False
-            self.indices = self.indices[retain_indices]
+                    if change.index < len(self.data):
+                        del self.data[change.index]
+                        remove_indices.append(int(change.index))
+            if remove_indices:
+                remove_indices = torch.tensor(remove_indices)
+                retain_indices = torch.ones(len(self.indices), dtype=torch.bool)
+                retain_indices[remove_indices] = False
+                self.indices = self.indices[retain_indices]
 
             all_inserts = []
             for grad in self.gradients:
