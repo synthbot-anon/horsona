@@ -53,4 +53,4 @@ async def test_rag(llm, rag_model):
     await loss.backward()
     await optimizer.step()
 
-    assert "A blue earth pony mare, Honeycrisp, appeared on screen" in rag.db.data
+    assert "A blue earth pony mare, Honeycrisp, appeared on screen" in rag.dataset.data

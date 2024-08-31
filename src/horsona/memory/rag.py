@@ -191,7 +191,7 @@ class RAGQueryFunction(HorseFunction):
 
 class RAGModule(HorseModule):
     def __init__(self, db: RAGDataset, llm: AsyncLLMEngine):
-        self.db = db
+        self.dataset = db
         self.query_fn = RAGQueryFunction(llm)
 
     async def query(
@@ -201,9 +201,9 @@ class RAGModule(HorseModule):
             query = HorseVariable([query], requires_grad=False)
 
         if topk == None:
-            topk = min(10, len(self.db.data))
+            topk = min(10, len(self.dataset.data))
 
         if isinstance(topk, int):
             topk = HorseVariable(topk, requires_grad=False)
 
-        return await self.query_fn(self.db, query, topk)
+        return await self.query_fn(self.dataset, query, topk)
