@@ -3,35 +3,10 @@ from xml.sax.saxutils import escape as xml_escape
 
 from pydantic import BaseModel
 
-from horsona.autodiff import HorseVariable
+from horsona.autodiff.basic import _convert_to_dict
 
 
-def _normalize(obj):
-    """
-    Recursively normalize an object for serialization.
-
-    This function handles Pydantic BaseModel instances, dictionaries, and lists.
-    Other types are returned as-is.
-
-    Args:
-        obj: The object to normalize.
-
-    Returns:
-        The normalized version of the object.
-    """
-    if isinstance(obj, HorseVariable):
-        return _normalize(obj.value)
-    if isinstance(obj, BaseModel):
-        return obj.model_dump()
-    elif isinstance(obj, dict):
-        return {k: _normalize(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_normalize(v) for v in obj]
-    else:
-        return obj
-
-
-def _serialize(obj, prefix, indent):
+def _convert_to_xml(obj, prefix, indent):
     """
     Serialize an object to a JSON string.
 
@@ -47,13 +22,13 @@ def _serialize(obj, prefix, indent):
     if isinstance(obj, dict):
         result = []
         for key, value in obj.items():
-            value_str = _serialize(value, f"{prefix}.{key}", indent + 1)
+            value_str = _convert_to_xml(value, f"{prefix}.{key}", indent + 1)
             result.append(f'\n{"  " * indent}<{key}>{value_str}</{key}>')
         return "".join(result) + "\n"
     elif isinstance(obj, list):
         result = []
         for i, value in enumerate(obj):
-            value_str = _serialize(value, prefix, indent + 1)
+            value_str = _convert_to_xml(value, prefix, indent + 1)
             result.append(
                 f'\n{"  " * indent}<{prefix}.{i}>{value_str}{"  " * indent}</{prefix}.{i}>'
             )
@@ -62,7 +37,7 @@ def _serialize(obj, prefix, indent):
         return f"{xml_escape(str(obj))}"
 
 
-def compile_user_prompt(**kwargs):
+async def compile_user_prompt(**kwargs):
     """
     Compile a user prompt from keyword arguments.
 
@@ -76,7 +51,7 @@ def compile_user_prompt(**kwargs):
     """
     prompt_pieces = []
     for key, value in kwargs.items():
-        value = _serialize(_normalize(value), key, 1)
+        value = _convert_to_xml(await _convert_to_dict(value), key, 1)
         prompt_pieces.append(f"<{key}>{value}</{key}>")
 
     return "\n\n".join(prompt_pieces)
@@ -104,7 +79,9 @@ def _compile_obj_system_prompt(response_model: type[BaseModel]):
     )
 
 
-def generate_obj_query_messages(response_model: type[BaseModel], prompt_args: dict):
+async def generate_obj_query_messages(
+    response_model: type[BaseModel], prompt_args: dict
+):
     """
     Generate messages for an object query.
 
@@ -118,7 +95,7 @@ def generate_obj_query_messages(response_model: type[BaseModel], prompt_args: di
     Returns:
         list: A list of message dictionaries for the LLM query.
     """
-    user_prompt = compile_user_prompt(**prompt_args) + (
+    user_prompt = await compile_user_prompt(**prompt_args) + (
         "\n\nReturn the correct JSON response within a ```json codeblock, not the "
         "JSON_SCHEMA. Use only fields specified by the JSON_SCHEMA and nothing else."
     )

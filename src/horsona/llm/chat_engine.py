@@ -3,7 +3,7 @@ from typing import TypeVar, Union
 
 from pydantic import BaseModel
 
-from .base_engine import AsyncLLMEngine, LLMEngine
+from .base_engine import AsyncLLMEngine
 from .engine_utils import (compile_user_prompt, generate_obj_query_messages,
                            parse_block_response, parse_obj_response)
 
@@ -11,65 +11,6 @@ __all__ = ["AsyncChatEngine", "ChatEngine"]
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
-
-
-class ChatEngine(LLMEngine, ABC):
-    def __init__(self, *args, **kwargs):
-        """
-        Initialize the LLMEngine.
-
-        Args:
-            fallback (LLMEngine, optional): Another LLMEngine instance to use as a fallback
-                                            if this engine's queries fail. Defaults to None.
-        """
-        super().__init__(*args, **kwargs)
-
-    @abstractmethod
-    def query(self, **kwargs) -> str:
-        """
-        Send a query to the LLM.
-
-        This is an abstract method that should be implemented by subclasses to interact
-        with specific LLM APIs.
-
-        Args:
-            **kwargs: Arbitrary keyword arguments for the query. Example: max_tokens.
-        """
-        pass
-
-    def query_object(self, response_model: type[T], **kwargs) -> T:
-        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
-        api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
-
-        try:
-            response = self.query(
-                messages=generate_obj_query_messages(response_model, prompt_args),
-                **api_args,
-            )
-        except Exception:
-            if self.fallback:
-                return self.fallback.query_object(response_model, **kwargs)
-            else:
-                raise
-
-        return parse_obj_response(response_model, response)
-
-    def query_block(self, block_type: str, **kwargs) -> str:
-        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
-        api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
-
-        try:
-            response = self.query(
-                messages=_generate_block_query_messages(block_type, prompt_args),
-                **api_args,
-            )
-        except Exception:
-            if self.fallback:
-                return self.fallback.query_block(block_type, **kwargs)
-            else:
-                raise
-
-        return parse_block_response(block_type, response)
 
 
 class AsyncChatEngine(AsyncLLMEngine, ABC):
@@ -95,7 +36,7 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
 
         try:
             response = await self.query(
-                messages=generate_obj_query_messages(response_model, prompt_args),
+                messages=await generate_obj_query_messages(response_model, prompt_args),
                 **api_args,
             )
         except Exception:
@@ -144,7 +85,7 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         return response
 
 
-def _generate_block_query_messages(block_type: str, prompt_args):
+async def _generate_block_query_messages(block_type: str, prompt_args):
     """
     Generate messages for a block query.
 
@@ -158,7 +99,7 @@ def _generate_block_query_messages(block_type: str, prompt_args):
     Returns:
         list: A list of message dictionaries for the LLM query.
     """
-    prompt = compile_user_prompt(**prompt_args)
+    prompt = await compile_user_prompt(**prompt_args)
     system_prompt = (
         "Respond with a single fenced code block and nothing else. Provide "
         f"the response within: ```{block_type}\ncontent\n```.\n\n"
