@@ -7,7 +7,6 @@ from horsona.autodiff import HorseFunction, HorseOptimizer, HorseVariable
 from horsona.autodiff.functions import TextExtractor
 from horsona.autodiff.losses import ConstantLoss
 from horsona.autodiff.variables import TextVariable
-from horsona.llm import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 
 
@@ -23,6 +22,7 @@ async def test_autodiff(reasoning_llm):
 
     class PonyName(BaseModel):
         name: str
+
     extracted_name = await name_extractor_fn(
         PonyName,
         TEXT=input_text,
@@ -33,10 +33,7 @@ async def test_autodiff(reasoning_llm):
     title_loss_fn = ConstantLoss("They should be addressed as Princess")
     optimizer = HorseOptimizer([input_text])
 
-    loss = (
-        await name_loss_fn(extracted_name) +
-        await title_loss_fn(extracted_name)
-    )
+    loss = await name_loss_fn(extracted_name) + await title_loss_fn(extracted_name)
 
     await optimizer.zero_grad()
     await loss.backward()
