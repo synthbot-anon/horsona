@@ -6,9 +6,13 @@ from .basic import HorseVariable
 
 
 class TextVariable(HorseVariable):
-    def __init__(self, value: str, updater_llm: AsyncLLMEngine = None, required_grad=True):
+    def __init__(
+        self, value: str, updater_llm: AsyncLLMEngine = None, required_grad=True
+    ):
         if required_grad:
-            assert updater_llm is not None, "updater_llm must be provided if required_grad is True."
+            assert (
+                updater_llm is not None
+            ), "updater_llm must be provided if required_grad is True."
 
         super().__init__(value=value, requires_grad=required_grad)
         self.updater_llm = updater_llm

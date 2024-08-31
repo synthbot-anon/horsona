@@ -7,6 +7,32 @@ from pydantic import BaseModel
 
 HorseType = TypeVar("HorseType", bound=Union[BaseModel, dict, int, float, bool, list])
 
+
+async def _convert_to_dict(obj):
+    """
+    Recursively normalize an object for serialization.
+
+    This function handles Pydantic BaseModel instances, dictionaries, and lists.
+    Other types are returned as-is.
+
+    Args:
+        obj: The object to normalize.
+
+    Returns:
+        The normalized version of the object.
+    """
+    if isinstance(obj, HorseVariable):
+        return await obj.dict()
+    if isinstance(obj, BaseModel):
+        return obj.model_dump()
+    elif isinstance(obj, dict):
+        return {k: await _convert_to_dict(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [await _convert_to_dict(v) for v in obj]
+    else:
+        return obj
+
+
 class HorseVariable:
     def __init__(
         self,
@@ -34,6 +60,9 @@ class HorseVariable:
             return self.value.model_dump_json(indent=2)
         else:
             return json.dumps(self.value, indent=2)
+
+    async def dict(self):
+        return await _convert_to_dict(self.value)
 
     async def apply_gradients(self):
         raise NotImplementedError
@@ -87,7 +116,7 @@ class HorseFunction(ABC):
     def __init__(self):
         super().__init__()
 
-    async def __call__(self, *args, **kwargs):
+    async def __call__(self, *args, **kwargs) -> HorseVariable:
         result = await self.forward(*args, **kwargs)
         result.grad_fn = functools.partial(self.backward, result, *args, **kwargs)
         return result
@@ -95,7 +124,7 @@ class HorseFunction(ABC):
     @abstractmethod
     async def forward(self, *args, **kwargs) -> HorseVariable:
         """Execute the function call and return a Variable result.
-        
+
         This function should return a Variable object that represents the result of the
         function call."""
         pass
@@ -124,7 +153,6 @@ class HorseModule(ABC):
                 if value in visited:
                     continue
                 yield from value.parameters()
-
 
     async def zero_grad(self):
         for p in self.parameters():

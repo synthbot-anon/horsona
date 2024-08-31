@@ -1,5 +1,3 @@
-import functools
-
 from pydantic import BaseModel
 
 from horsona.llm.base_engine import AsyncLLMEngine
@@ -22,9 +20,7 @@ class TextExtractor(HorseFunction):
             predecessors=[x for x in kwargs.values() if isinstance(x, HorseVariable)],
         )
 
-    async def backward(
-        self, result: HorseVariable, model_cls, **kwargs
-    ):
+    async def backward(self, result: HorseVariable, model_cls, **kwargs):
         if not result.requires_grad:
             return
 
@@ -50,10 +46,14 @@ class TextExtractor(HorseFunction):
 
         class FeedbackAssignments(BaseModel):
             assignments: list[SuggestedAssignment]
-        
+
         gradients = await self.llm.query_object(
             FeedbackAssignments,
-            INPUTS=[{'name': k, 'value': v} for k,v in kwargs.items() if isinstance(v, HorseVariable) and v.requires_grad],
+            INPUTS=[
+                {"name": k, "value": v}
+                for k, v in kwargs.items()
+                if isinstance(v, HorseVariable) and v.requires_grad
+            ],
             RESULT=result,
             FEEDBACK=result.gradients,
             TASK=(
@@ -69,10 +69,10 @@ class TextExtractor(HorseFunction):
                 continue
 
             variable = kwargs[change.input_name]
-            
+
             if not isinstance(variable, HorseVariable):
                 continue
             if not variable.requires_grad:
                 continue
-            
+
             variable.gradients.extend(change.relevant_feedback)
