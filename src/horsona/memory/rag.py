@@ -179,7 +179,11 @@ class RAGQueryFunction(HorseFunction):
                 RESULTS=result,
                 TOP_K=topk,
                 FEEDBACK=query.gradients,
-                TASK="The user ran a similarity search for QUERY and received RESULTS. The user provided FEEDBACK on the query. Use the FEEDBACK to determine what changes need to be made to the query.",
+                TASK=("The user ran a similarity search for QUERY and received "
+                      "RESULTS. The user provided FEEDBACK on the query. Use the "
+                      "FEEDBACK to determine what changes need to be made to the "
+                      "query."
+                )
             )
 
             query.gradients.append(response.new_query)
