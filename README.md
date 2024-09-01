@@ -32,7 +32,7 @@ poetry run pytest tests/test_llm.py
 
 
 # Contributing
-1. Check the [open issues](https://github.com/synthbot-anon/horsona/issues) for something you can work on. If you want to work on something new, post in the thread so we can sanity check it.
+1. Check the [open issues](https://github.com/synthbot-anon/horsona/issues) for something you can work on. If you're new, check out [good first issues](https://github.com/synthbot-anon/horsona/labels/good%20first%20issue). If you want to work on something that's not listed, post in the thread so we can figure out how to approach it.
 2. Post in the thread to claim an issue. You can optionally include your github account in the post so I know whom to assign the issue to.
 3. If you're implementing new functionality, create a new folder in `src/horsona/contributions` and `tests/contributions` folders, and put your code there. Make sure to add at least one test case so it's clear how to use your code.
 4. Make sure your code works with `poetry run pytest path/to/test/file.py`. If you're modifying something outside of `contributions`, make sure to run the relevant tests.
@@ -57,4 +57,4 @@ This target feature list is incomplete:
 If you think of other features you want in a general-purpose chatbot library, let me know in the thread.
 
 # Contact
-Post in the PPP thread.
+Post in the PPP.
