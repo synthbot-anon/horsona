@@ -55,3 +55,6 @@ This target feature list is incomplete:
 - Support jailbreaks
 
 If you think of other features you want in a general-purpose chatbot library, let me know in the thread.
+
+# Contact
+Post in the PPP thread.
