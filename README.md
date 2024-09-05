@@ -14,7 +14,7 @@ Or install the repo for development:
 pip install git+https://github.com/synthbot-anon/horsona
 git clone git@github.com:synthbot-anon/horsona.git
 cd horsona
-./install.sh
+./dev-install.sh
 # Start the dev environment
 poetry shell
 # Use the .env file in the horsona repo
