@@ -2,14 +2,25 @@
 Creating a realistic pony chatbot is very difficult. This repo will try to maintain an organized collection of features that a pony chatbot might need in the hopes that future chatbot developers will have a easier time with it.
 
 # Installation
-Install the repo:
+Install the repo to use it:
 ```bash
+pip install --upgrade git+https://github.com/synthbot-anon/horsona
+# Create a .env file in your project
+curl https://raw.githubusercontent.com/synthbot-anon/horsona/main/.env.example > /path/to/project/.env
+```
+
+Or install the repo for development:
+```bash
+pip install git+https://github.com/synthbot-anon/horsona
 git clone git@github.com:synthbot-anon/horsona.git
 cd horsona
 ./install.sh
+# Start the dev environment
+poetry shell
+# Use the .env file in the horsona repo
 ```
 
-Configure the environment variables:
+Configure the environment variables in .env:
 ```bash
 vim .env
 # Edit .env to include your API keys. Example:
