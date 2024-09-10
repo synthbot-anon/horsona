@@ -64,6 +64,7 @@ This target feature list is incomplete:
 - Making & rolling back high level edits to character cards
 - Support continuing prompts, like non-chat GPTs
 - Support jailbreaks
+- Support the creation of fine-tuning datasets
 
 If you think of other features you want in a general-purpose chatbot library, let me know in the thread.
 
