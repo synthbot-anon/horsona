@@ -1,15 +1,10 @@
-import functools
-
 import pytest
-from pydantic import BaseModel
 
-from horsona.autodiff import HorseFunction, HorseOptimizer, HorseVariable
-from horsona.autodiff.functions import TextExtractor
-from horsona.autodiff.losses import ConstantLoss
+from horsona.autodiff.basic import HorseOptimizer
 from horsona.autodiff.variables import Value
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 from horsona.llm.fireworks_engine import AsyncFireworksEngine
-from horsona.stories.reader import StoryReader
+from horsona.stories.reader import ReadResult, StoryReader
 
 STORY = """James looked skeptically at his friend David as he sat down at computer #12.
 David had won the Hasbro raffle for one of fifteen all-expenses-paid trips for two to Pawtucket, Rhode Island to play the first alpha build of the official My Little Pony MMO: Equestria Online. Hasbro had claimed that a game that revolved so heavily around friendship needed actual friends to test properly.
@@ -36,18 +31,20 @@ async def test_reader(reasoning_llm):
 
     for p in story_paragraphs:
         # Figure out what's new in the paragraph
-        loss = await reader.read(p)
+        loss: ReadResult = await reader.read(Value(p))
 
         # Update the reader's state based on what was read
-        await optimizer.zero_grad()
-        await loss.backward()
-        await optimizer.step()
+        gradients = await loss.backward()
+        await optimizer.step(gradients)
 
-    assert len(reader.short_term_memory.buffer) > 0
-    assert len(reader.long_term_memory.context) > 0
-    assert reader.current_state.last_speaker == "David"
-    assert set(reader.current_state.characters_in_scene) == {"James", "David"}
+    assert len(reader.buffer_memory.context) > 0
+    assert len(reader.database_memory.context) > 0
+    assert reader.current_state.context.value.last_speaker == "David"
+    assert set(reader.current_state.context.value.characters_in_scene) == {
+        "James",
+        "David",
+    }
     assert (
-        "computer #12" in reader.current_state.current_location.lower()
-        or "pawtucket" in reader.current_state.current_location.lower()
+        "computer #12" in reader.current_state.context.value.current_location.lower()
+        or "pawtucket" in reader.current_state.context.value.current_location.lower()
     )

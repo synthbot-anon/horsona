@@ -1,28 +1,94 @@
-import asyncio
-import functools
 from abc import ABC, abstractmethod
-from typing import TypeVar, Union
+from collections import defaultdict
+from reprlib import recursive_repr
 
 from pydantic import BaseModel
 
-HorseType = TypeVar("HorseType", bound=Union[BaseModel, dict, int, float, bool, list])
+
+class partial:
+    """New function with partial application of the given arguments
+    and keywords. This is a modification of the functools.partial class.
+    Positional args provided during the call will be prepended to the arguments
+    instead of appended.
+    """
+
+    __slots__ = "func", "args", "keywords", "__dict__", "__weakref__"
+
+    def __new__(cls, func, /, *args, **keywords):
+        if not callable(func):
+            raise TypeError("the first argument must be callable")
+
+        if hasattr(func, "func"):
+            args = func.args + args
+            keywords = {**func.keywords, **keywords}
+            func = func.func
+
+        self = super(partial, cls).__new__(cls)
+
+        self.func = func
+        self.args = args
+        self.keywords = keywords
+        return self
+
+    def __call__(self, /, *args, **keywords):
+        keywords = {**self.keywords, **keywords}
+        return self.func(*args, *self.args, **keywords)
+
+    @recursive_repr()
+    def __repr__(self):
+        qualname = type(self).__qualname__
+        args = [repr(self.func)]
+        args.extend(repr(x) for x in self.args)
+        args.extend(f"{k}={v!r}" for (k, v) in self.keywords.items())
+        if type(self).__module__ == "functools":
+            return f"functools.{qualname}({', '.join(args)})"
+        return f"{qualname}({', '.join(args)})"
+
+    def __reduce__(self):
+        return (
+            type(self),
+            (self.func,),
+            (self.func, self.args, self.keywords or None, self.__dict__ or None),
+        )
+
+    def __setstate__(self, state):
+        if not isinstance(state, tuple):
+            raise TypeError("argument to __setstate__ must be a tuple")
+        if len(state) != 4:
+            raise TypeError(f"expected 4 items in state, got {len(state)}")
+        func, args, kwds, namespace = state
+        if (
+            not callable(func)
+            or not isinstance(args, tuple)
+            or (kwds is not None and not isinstance(kwds, dict))
+            or (namespace is not None and not isinstance(namespace, dict))
+        ):
+            raise TypeError("invalid partial state")
+
+        args = tuple(args)  # just in case it's a subclass
+        if kwds is None:
+            kwds = {}
+        elif type(kwds) is not dict:  # XXX does it need to be *exactly* dict?
+            kwds = dict(kwds)
+        if namespace is None:
+            namespace = {}
+
+        self.__dict__ = namespace
+        self.func = func
+        self.args = args
+        self.keywords = kwds
+
+
+class HorseGradient(BaseModel, ABC):
+    pass
 
 
 class HorseVariable(ABC):
     def __init__(
         self,
         predecessors: set["HorseVariable"] = set(),
-        requires_grad: bool = True,
+        requires_grad: bool = False,
     ):
-        _predecessor_requires_grad = [v for v in predecessors if v.requires_grad]
-        if (not requires_grad) and (len(_predecessor_requires_grad) > 0):
-            raise Exception(
-                "If the variable does not require grad, none of its predecessors "
-                "should require grad. In this case, following predecessors require "
-                f"grad: {_predecessor_requires_grad}"
-            )
-
-        self.gradients: list[HorseVariable] = list()
         self.grad_fn = None
         self.predecessors = set(predecessors)
         self.requires_grad = requires_grad
@@ -31,11 +97,8 @@ class HorseVariable(ABC):
     async def json(self):
         pass
 
-    async def apply_gradients(self):
+    async def apply_gradients(self, gradients: list[HorseGradient]):
         raise NotImplementedError
-
-    async def reset_gradients(self):
-        self.gradients = []
 
     async def backward(self):
         """
@@ -54,10 +117,16 @@ class HorseVariable(ABC):
 
         build_topo(self)
 
+        grad_context: dict[HorseVariable, list[HorseGradient]] = defaultdict(list)
         for v in reversed(topo):
-            if v.requires_grad:
-                if v.grad_fn is not None:
-                    await v.grad_fn()
+            if v.grad_fn is not None:
+                new_gradients = await v.grad_fn(grad_context)
+                if not new_gradients:
+                    continue
+                for k, g in new_gradients.items():
+                    grad_context[k].extend(g)
+
+        return grad_context
 
     async def forward(self):
         return self
@@ -67,18 +136,17 @@ class HorseVariable(ABC):
             async def json(self):
                 return [await x.json() for x in self.predecessors]
 
-            async def apply_gradients(self):
-                await asyncio.gather(
-                    self.predecessors[0].apply_gradients(),
-                    self.predecessors[1].apply_gradients(),
-                )
-
-        async def sum_grad_fn(a: HorseVariable, b: HorseVariable):
-            a.gradients.extend(self.gradients)
-            b.gradients.extend(self.gradients)
+        async def sum_grad_fn(
+            context, r: HorseVariable, a: HorseVariable, b: HorseVariable
+        ):
+            result = {
+                a: context[r],
+                b: context[r],
+            }
+            return result
 
         result = Sum(predecessors=[self, other])
-        result.grad_fn = functools.partial(sum_grad_fn, self, other)
+        result.grad_fn = partial(sum_grad_fn, result, self, other)
         return result
 
 
@@ -92,7 +160,8 @@ class HorseFunction(ABC):
 
     async def __call__(self, *args, **kwargs) -> HorseVariable:
         result = await self.forward(*args, **kwargs)
-        result.grad_fn = functools.partial(self.backward, result, *args, **kwargs)
+
+        result.grad_fn = partial(self.backward, result, *args, **kwargs)
         return result
 
     @abstractmethod
@@ -105,13 +174,7 @@ class HorseFunction(ABC):
 
     @abstractmethod
     async def backward(self, result: HorseVariable, *args, **kwargs):
-        """Set the gradient for all input variables that require a gradient.
-
-        This function should add to predecessor.gradients for all predecessors where
-        .required_grad is True.
-
-        This function should be an async function.
-        """
+        """Return a dict of gradients for all input variables."""
         pass
 
 
@@ -122,26 +185,25 @@ class HorseModule(ABC):
         visited = set([self])
         for value in self.__dict__.values():
             if isinstance(value, HorseVariable):
-                yield value
+                if value.requires_grad:
+                    yield value
             elif isinstance(value, HorseModule):
                 if value in visited:
                     continue
                 yield from value.parameters()
 
-    async def zero_grad(self):
-        for p in self.parameters():
-            await p.reset_gradients()
-
 
 class HorseOptimizer:
     def __init__(self, parameters):
         self.parameters: set[HorseVariable] = set(parameters)
+        for p in self.parameters:
+            if not p.requires_grad:
+                raise ValueError(f"{p} must require gradients")
 
-    async def step(self):
-        for param in self.parameters:
-            if param.requires_grad and param.gradients:
-                await param.apply_gradients()
+        if len(self.parameters) == 0:
+            raise ValueError("Optimizer got an empty parameter set")
 
-    async def zero_grad(self):
-        for param in self.parameters:
-            await param.reset_gradients()
+    async def step(self, gradients: dict[HorseVariable, list[HorseGradient]]):
+        for v, g in gradients.items():
+            if v.requires_grad:
+                await v.apply_gradients(g)

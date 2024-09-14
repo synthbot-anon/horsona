@@ -1,9 +1,50 @@
 from abc import ABC, abstractmethod
+from typing import Any, Literal, Optional, Union
+
+from pydantic import BaseModel
+
+from horsona.autodiff.basic import HorseGradient, HorseVariable
+from horsona.llm.base_engine import AsyncLLMEngine
 
 
-class Database(ABC):
+class DatabaseUpdate(BaseModel):
+    operation: Literal["UPDATE"] = "UPDATE"
+    key: str
+    original_data: Optional[str] = None
+    errata: Optional[str] = None
+    corrected_data: str
+
+
+class DatabaseDelete(BaseModel):
+    operation: Literal["DELETE"] = "DELETE"
+    key: str
+
+
+class DatabaseNoChange(BaseModel):
+    operation: Literal["NO_CHANGE"] = "NO_CHANGE"
+    key: str
+
+
+class DatabaseOpGradient(HorseGradient):
+    changes: list[Union[DatabaseUpdate, DatabaseDelete, DatabaseNoChange]]
+
+
+class DatabaseTextGradient(HorseGradient):
+    context: Any
+    change: Any
+
+
+class DatabaseInsertGradient(HorseGradient):
+    rows: Any
+
+
+class Database(HorseVariable, ABC):
+    def __init__(self, llm: AsyncLLMEngine, **kwargs):
+        super().__init__(**kwargs)
+        self.llm = llm
+
     @abstractmethod
-    async def update(self, data):
+    async def insert(self, data):
         pass
 
     @abstractmethod
@@ -19,9 +60,56 @@ class Database(ABC):
         pass
 
     @abstractmethod
-    async def replace(self, key, value):
+    async def update(self, key, value):
         pass
 
     @abstractmethod
     async def get(self, key):
         pass
+
+    async def apply_gradients(self, gradients: list[HorseGradient]):
+        if not gradients:
+            return
+
+        all_contexts = dict()
+        all_gradients = []
+        all_changes = []
+
+        for gradient in gradients:
+            if isinstance(gradient, DatabaseTextGradient):
+                all_contexts.update(gradient.context)
+                all_gradients.append(gradient.change)
+            elif isinstance(gradient, DatabaseOpGradient):
+                for change in gradient.changes:
+                    query, _ = (await self.query(change.key)).popitem()
+                    all_changes.append((query, change))
+            elif isinstance(gradient, DatabaseInsertGradient):
+                await self.insert(gradient.rows.value)
+
+        response = await self.llm.query_object(
+            DatabaseOpGradient,
+            ERRATA=all_gradients,
+            DATASET=all_contexts,
+            TASK=(
+                "You are maintaining the DATASET with the latest information. "
+                "A user provided ERRATA to the DATASET. "
+                "Edit the DATASET to address the ERRATA. "
+            ),
+        )
+
+        for change in response.changes:
+            result = await self.query(change.key)
+            if not result:
+                continue
+            query, _ = result.popitem()
+            all_changes.append((query, change))
+
+        for query, change in all_changes:
+            if not isinstance(change, DatabaseUpdate):
+                continue
+            await self.update(query, change.corrected_data)
+
+        for query, change in all_changes:
+            if not isinstance(change, DatabaseDelete):
+                continue
+            await self.delete(query)

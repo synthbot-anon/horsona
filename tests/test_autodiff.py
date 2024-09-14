@@ -1,27 +1,23 @@
-import functools
-
 import pytest
 from pydantic import BaseModel
 
-from horsona.autodiff import HorseFunction, HorseOptimizer, HorseVariable
+from horsona.autodiff.basic import HorseOptimizer
 from horsona.autodiff.functions import TextExtractor
 from horsona.autodiff.losses import ConstantLoss
-from horsona.autodiff.variables import Value
+from horsona.autodiff.variables import Parameter
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
-from horsona.llm.fireworks_engine import AsyncFireworksEngine
 
 
 @pytest.fixture(scope="module")
 def reasoning_llm():
     return AsyncCerebrasEngine(
         model="llama3.1-70b",
-        fallback=AsyncFireworksEngine(model="accounts/fireworks/models/llama-v3p1-70b-instruct"),
     )
 
 
 @pytest.mark.asyncio
 async def test_autodiff(reasoning_llm):
-    input_text = Value("My name is Luna", reasoning_llm)
+    input_text = Parameter("My name is Luna", reasoning_llm)
     name_extractor_fn = TextExtractor(reasoning_llm)
 
     class PonyName(BaseModel):
@@ -39,8 +35,7 @@ async def test_autodiff(reasoning_llm):
 
     loss = await name_loss_fn(extracted_name) + await title_loss_fn(extracted_name)
 
-    await optimizer.zero_grad()
-    await loss.backward()
-    await optimizer.step()
+    gradients = await loss.backward()
+    await optimizer.step(gradients)
 
     assert input_text.value == "My name is Princess Celestia"

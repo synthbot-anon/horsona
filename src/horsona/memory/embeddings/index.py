@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 from typing import Literal, Union
 
 import torch
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from horsona.autodiff.basic import HorseVariable
+from horsona.autodiff.basic import HorseGradient, HorseVariable
 
 
 class IndexInsert(BaseModel):
@@ -18,7 +18,7 @@ class IndexDelete(BaseModel):
     index: int
 
 
-class IndexChanges(BaseModel):
+class IndexChanges(HorseGradient):
     changes: list[Union[IndexInsert, IndexDelete]]
 
 
@@ -34,7 +34,7 @@ class EmbeddingModel(ABC):
 
 class EmbeddingIndex(HorseVariable):
     def __init__(self, description, model: EmbeddingModel, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         self.model = model
         self.values = {}
         self.reverse_values = {}
@@ -55,12 +55,14 @@ class EmbeddingIndex(HorseVariable):
             "recent_changes": self.recent_changes,
         }
 
-    async def apply_gradients(self):
+    async def apply_gradients(self, gradients: list[IndexChanges]):
         insertions = []
         deletions = []
 
-        for grad in self.gradients:
-            for change in grad:
+        print("gradients:", gradients)
+
+        for grad in gradients:
+            for change in grad.changes:
                 if isinstance(change, IndexInsert):
                     insertions.append(change.value)
                 elif isinstance(change, IndexDelete):

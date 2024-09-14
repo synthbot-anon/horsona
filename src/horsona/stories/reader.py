@@ -1,25 +1,24 @@
-import json
-from typing import Literal, Union
+from collections import defaultdict
 
-import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from horsona.autodiff.basic import (HorseFunction, HorseModule, HorseOptimizer,
+from horsona.autodiff.basic import (HorseFunction, HorseGradient, HorseModule,
                                     HorseVariable)
-from horsona.autodiff.variables import Result
+from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
-from horsona.llm.cerebras_engine import AsyncCerebrasEngine
-from horsona.llm.fireworks_engine import AsyncFireworksEngine
-from horsona.memory.caches.dbcache import DatabaseCache
-from horsona.memory.embeddings.databases import EmbeddingDatabase
+from horsona.memory.database import (DatabaseInsertGradient,
+                                     DatabaseTextGradient)
+from horsona.memory.dbcache import DatabaseCache
+from horsona.memory.embeddings.database import EmbeddingDatabase
 from horsona.memory.embeddings.index import EmbeddingIndex
 from horsona.memory.embeddings.models import HuggingFaceBGEModel
+from horsona.memory.listcache import ListCache
 
 load_dotenv()
 
 
-class StoryState(BaseModel):
+class LiveState(BaseModel):
     current_location: str
     characters_in_scene: list[str]
     last_speaker: str
@@ -40,40 +39,45 @@ class Information(BaseModel):
     information: list[QueryInfo]
 
 
-class NewInfoResult(Result):
+class ReadResult(HorseVariable):
     def __init__(
         self,
-        setting_database,
-        long_term_memory,
-        short_term_memory,
-        current_state,
-        new_information,
-        **kwargs
+        database_context: DatabaseCache,
+        buffer_context: ListCache,
+        state_context: Value,
+        new_information: Value,
+        corrections: Value,
+        **kwargs,
     ):
-        super().__init__(new_information, **kwargs)
-        self.setting_database = setting_database
-        self.long_term_memory = long_term_memory
-        self.short_term_memory = short_term_memory
-        self.current_state = current_state
+        super().__init__(**kwargs)
+        self.database_context = database_context
+        self.buffer_context = buffer_context
+        self.state_context = state_context
         self.new_information = new_information
+        self.corrections = corrections
 
     async def json(self):
         return self.new_information
 
 
-class NewInfoLoss(HorseFunction):
-    async def forward(self, reader: "StoryReader", paragraph: str):
-        reader.current_state.memory_corrections = ["Fill this in"]
-        long_term_memory = reader.long_term_memory
-        short_term_memory = reader.short_term_memory
-        setting_database = reader.setting_database
-        current_state = reader.current_state
+class ReadFunction(HorseFunction):
+    async def forward(
+        self,
+        llm: AsyncLLMEngine,
+        buffer_memory: ListCache,
+        database_memory: DatabaseCache,
+        current_state: "StoryState",
+        paragraph: Value,
+    ):
+        class UpdatedState(BaseModel):
+            new_state: type(current_state.context.value)
+            memory_corrections: list[str]
 
-        search = await reader.llm.query_structured(
+        search = await llm.query_structured(
             Search,
-            PREVIOUS_PARAGRAPHS=short_term_memory,
-            MEMORY_STATE=long_term_memory,
-            CURRENT_STATE=current_state,
+            PREVIOUS_PARAGRAPHS=buffer_memory.context,
+            MEMORY_STATE=database_memory.context,
+            CURRENT_STATE=current_state.context,
             PARAGRAPH=paragraph,
             TASK=(
                 "You are trying to understand the current PARAGRAPH in a story. "
@@ -84,44 +88,13 @@ class NewInfoLoss(HorseFunction):
         )
 
         for q in search.queries:
-            await long_term_memory.load_data(q, topk=3)
+            database_context = await database_memory.load(Value(q))
 
-        new_info = await reader.llm.query_structured(
-            Information,
-            MEMORY_STATE=long_term_memory,
-            PREVIOUS_PARAGRAPHS=short_term_memory,
-            CURRENT_STATE=current_state,
-            PARAGRAPH=paragraph,
-            TASK=(
-                "You are trying to understand the current PARAGRAPH in a story. "
-                "The MEMORY_STATE gives context for reading the PARAGRAPH. "
-                "You are adding information to a keyword search engine that can retrieve past information about the story state. "
-                "Suggest keyword queries and responses so that future searches would retrieve relevant information from PARAGRAPH. "
-                "The responses will be given to someone without context, so provide enough details in every individual response."
-            ),
-        )
-        new_info = {i.query: i.result for i in new_info.information}
-
-        return NewInfoResult(
-            setting_database,
-            long_term_memory,
-            short_term_memory,
-            current_state,
-            new_info,
-        )
-
-    async def backward(
-        self, result: NewInfoResult, reader: "StoryReader", paragraph: str
-    ):
-        # TODO: update everything through gradients to make it more general
-
-        await reader.setting_database.update(result.new_information)
-
-        updated_state = await reader.llm.query_structured(
-            StoryState,
-            MEMORY_STATE=result.long_term_memory,
-            PREVIOUS_PARAGRAPHS=result.short_term_memory,
-            CURRENT_STATE=result.current_state,
+        update: UpdatedState = await llm.query_structured(
+            UpdatedState,
+            MEMORY_STATE=database_memory.context,
+            PREVIOUS_PARAGRAPHS=buffer_memory.context,
+            CURRENT_STATE=current_state.context,
             PARAGRAPH=paragraph,
             TASK=(
                 "Modify the CURRENT_STATE based on the PARAGRAPH. "
@@ -131,26 +104,76 @@ class NewInfoLoss(HorseFunction):
             ),
         )
 
-        reader.current_state = updated_state
-        reader.long_term_memory.gradients = updated_state.memory_corrections
+        new_info: Information = await llm.query_structured(
+            Information,
+            MEMORY_STATE=database_memory.context,
+            PREVIOUS_PARAGRAPHS=buffer_memory.context,
+            CURRENT_STATE=current_state.context,
+            PARAGRAPH=paragraph,
+            TASK=(
+                "You are trying to understand the current PARAGRAPH in a story. "
+                "The MEMORY_STATE gives context for reading the PARAGRAPH. "
+                "You are adding information to a keyword search engine that can retrieve past information about the story state. "
+                "Suggest keyword queries and responses so that future searches would retrieve relevant information from PARAGRAPH. "
+                "The responses will be given to someone without context, so provide enough details in every individual response."
+            ),
+        )
 
-        reader.short_term_memory.gradients.append(paragraph)
+        state_context = await current_state.load(Value(update.new_state))
+        buffer_context = await buffer_memory.load(paragraph)
+
+        new_info = Value({i.query: i.result for i in new_info.information})
+        corrections = Value(update.memory_corrections)
+        return ReadResult(
+            database_context,
+            buffer_context,
+            state_context,
+            new_info,
+            corrections,
+            predecessors=[paragraph, database_context, buffer_context, state_context],
+        )
+
+    async def backward(
+        self,
+        context: dict[HorseVariable, list[HorseGradient]],
+        result: ReadResult,
+        llm: AsyncLLMEngine,
+        buffer_memory: ListCache,
+        database_memory: DatabaseCache,
+        current_state: "StoryState",
+        paragraph: Value,
+    ):
+        g = defaultdict(list)
+        if result.corrections.value:
+            g[result.database_context].append(
+                DatabaseTextGradient(
+                    context=result.database_context, change=result.corrections
+                )
+            )
+        if result.new_information.value:
+            g[result.database_context].append(
+                DatabaseInsertGradient(rows=result.new_information)
+            )
+
+        return g
 
 
-class ListBuffer(HorseVariable):
-    def __init__(self, limit, buffer: list = None):
+class StoryState(HorseModule):
+    def __init__(self):
         super().__init__()
-        if buffer == None:
-            buffer = []
-        self.limit = limit
-        self.buffer = buffer
+        self.context = Value(
+            LiveState(
+                current_location="",
+                characters_in_scene=[],
+                last_speaker="",
+                expected_next_speaker="",
+                memory_corrections=[],
+            )
+        )
 
-    async def apply_gradients(self):
-        self.buffer.extend(self.gradients)
-        self.buffer = self.buffer[-self.limit :]
-
-    async def json(self):
-        return self.buffer
+    async def load(self, value: Value):
+        self.context = value
+        return self.context
 
 
 class StoryReader(HorseModule):
@@ -158,24 +181,25 @@ class StoryReader(HorseModule):
         super().__init__()
         self.llm = llm
         self.setting_database = EmbeddingDatabase(
+            self.llm,
             EmbeddingIndex(
                 "Current state of the story setting",
                 HuggingFaceBGEModel(model="BAAI/bge-large-en-v1.5"),
-            )
+            ),
+            requires_grad=True,
         )
 
-        self.short_term_memory = ListBuffer(5)
-        self.long_term_memory = DatabaseCache(llm, self.setting_database, 10)
+        self.buffer_memory = ListCache(5)
+        self.database_memory = DatabaseCache(llm, self.setting_database, 10)
+        self.current_state = StoryState()
 
-        self.current_state = StoryState(
-            current_location="",
-            characters_in_scene=[],
-            last_speaker="",
-            expected_next_speaker="",
-            memory_corrections=[],
-        )
-
-        self.new_info_loss = NewInfoLoss()
+        self.new_info_loss = ReadFunction()
 
     async def read(self, paragraph):
-        return await self.new_info_loss(self, paragraph)
+        return await self.new_info_loss(
+            self.llm,
+            self.buffer_memory,
+            self.database_memory,
+            self.current_state,
+            paragraph,
+        )

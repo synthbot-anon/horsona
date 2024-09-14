@@ -1,5 +1,3 @@
-from typing import Generator
-
 import pytest
 from dotenv import load_dotenv
 
@@ -34,7 +32,6 @@ def embedding_model() -> EmbeddingIndex:
     return HuggingFaceBGEModel(model="BAAI/bge-large-en-v1.5")
 
 
-
 @pytest.mark.asyncio
 async def test_query(llm, embedding_model):
     index = EmbeddingIndex("State of the story setting", embedding_model)
@@ -42,6 +39,7 @@ async def test_query(llm, embedding_model):
 
     result = await index.query("Who is Honeycrisp", topk=1)
     assert "A red earth pony mare, Honeycrisp, appeared on screen" in result.values()
+
 
 @pytest.mark.asyncio
 async def test_delete(llm, embedding_model):
@@ -51,31 +49,56 @@ async def test_delete(llm, embedding_model):
     await index.delete([1, 2])
 
     remaining_data = set(index.values.values())
-    assert "A gray earth pony with navy blue hair is displayed on the monitor" not in remaining_data
+    assert (
+        "A gray earth pony with navy blue hair is displayed on the monitor"
+        not in remaining_data
+    )
     assert "A blue unicorn appears on screen" not in remaining_data
 
     assert len(remaining_data) == len(SAMPLE_DATA) - 2
 
+
 @pytest.mark.asyncio
 async def test_apply_gradients(embedding_model):
-    index = EmbeddingIndex("State of the story setting", embedding_model)
+    index = EmbeddingIndex(
+        "State of the story setting", embedding_model, requires_grad=True
+    )
+    apply_loss = ConstantLoss()
+
     await index.extend(SAMPLE_DATA[:])
 
-    index.gradients.append(IndexChanges(**{
-        'changes': [
-        {'operation':"DELETE", 'index':1},
-        {'operation':"DELETE", 'index':7,},
-        {'operation':"INSERT", 'value':"A blue earth pony mare, Honeycrisp, appeared on screen"},
-        {'operation':'INSERT', 'value':"James is an awful pony"},
-    ]}).changes)
+    optimizer = HorseOptimizer([index])
 
-    await index.apply_gradients()
+    loss = await apply_loss(
+        index,
+        IndexChanges(
+            **{
+                "changes": [
+                    {"operation": "DELETE", "index": 1},
+                    {
+                        "operation": "DELETE",
+                        "index": 7,
+                    },
+                    {
+                        "operation": "INSERT",
+                        "value": "A blue earth pony mare, Honeycrisp, appeared on screen",
+                    },
+                    {"operation": "INSERT", "value": "James is an awful pony"},
+                ]
+            }
+        ),
+    )
+
+    gradients = await loss.backward()
+    await optimizer.step(gradients)
 
     assert len(index.values) == len(SAMPLE_DATA)
-    
+
     values = set(index.values.values())
-    print(values)
-    assert "A gray earth pony with navy blue hair is displayed on the monitor" not in values
+    assert (
+        "A gray earth pony with navy blue hair is displayed on the monitor"
+        not in values
+    )
     assert "A red earth pony mare, Honeycrisp, appeared on screen" not in values
     assert "A blue earth pony mare, Honeycrisp, appeared on screen" in values
     assert "James is an awful pony" in values
