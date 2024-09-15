@@ -36,12 +36,12 @@ async def test_reader(reasoning_llm):
 
     assert len(reader.buffer_memory.context) > 0
     assert len(reader.database_memory.context) > 0
-    assert reader.current_state.context.value.last_speaker == "David"
-    assert set(reader.current_state.context.value.characters_in_scene) == {
+    assert reader.state_cache.context.value.last_speaker == "David"
+    assert set(reader.state_cache.context.value.characters_in_scene) == {
         "James",
         "David",
     }
     assert (
-        "computer #12" in reader.current_state.context.value.current_location.lower()
-        or "pawtucket" in reader.current_state.context.value.current_location.lower()
+        "computer #12" in reader.state_cache.context.value.current_location.lower()
+        or "pawtucket" in reader.state_cache.context.value.current_location.lower()
     )

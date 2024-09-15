@@ -14,7 +14,12 @@ from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.caches.cache import Cache
 from horsona.memory.caches.dbcache import DatabaseCache
 from horsona.memory.caches.listcache import ListCache
-from horsona.memory.database import DatabaseInsertGradient, DatabaseTextGradient
+from horsona.memory.caches.valuecache import ValueCache
+from horsona.memory.database import (
+    Database,
+    DatabaseInsertGradient,
+    DatabaseTextGradient,
+)
 from horsona.memory.embeddings.database import EmbeddingDatabase
 from horsona.memory.embeddings.index import EmbeddingIndex
 from horsona.memory.embeddings.models import HuggingFaceBGEModel
@@ -64,53 +69,60 @@ class ReadResult(HorseVariable):
         return self.new_information
 
 
-class StoryStateContext(Value):
-    def __init__(self, **kwargs):
-        value = LiveState(
-            current_location="",
-            characters_in_scene=[],
-            last_speaker="",
-            expected_next_speaker="",
-            memory_corrections=[],
-        )
-        super().__init__(value, **kwargs)
-
-
-class StoryState(Cache):
-    def __init__(self):
-        super().__init__(StoryStateContext())
-
-    async def load(self, value: Value):
-        self.context = value
-        return self.context
-
-
 class StoryReader(HorseModule):
-    def __init__(self, llm: AsyncLLMEngine):
+    def __init__(
+        self,
+        llm: AsyncLLMEngine,
+        setting_db: Database = None,
+        buffer_cache: Cache = None,
+        database_cache: Cache = None,
+        state_cache: Cache = None,
+    ):
         super().__init__()
         self.llm = llm
-        self.setting_database = EmbeddingDatabase(
-            self.llm,
-            EmbeddingIndex(
-                "Current state of the story setting",
-                HuggingFaceBGEModel(model="BAAI/bge-large-en-v1.5"),
-            ),
-            requires_grad=True,
-        )
 
-        self.buffer_memory = ListCache(5)
-        self.database_memory = DatabaseCache(llm, self.setting_database, 10)
-        self.current_state = StoryState()
+        if setting_db is None:
+            setting_db = setting_db or EmbeddingDatabase(
+                self.llm,
+                EmbeddingIndex(
+                    "Current state of the story setting",
+                    HuggingFaceBGEModel(model="BAAI/bge-large-en-v1.5"),
+                ),
+                requires_grad=True,
+            )
+        self.setting_db = setting_db
+
+        if buffer_cache is None:
+            buffer_cache = ListCache(5)
+        self.buffer_memory = buffer_cache
+
+        if database_cache is None:
+            database_cache = DatabaseCache(llm, setting_db, 10)
+        self.database_memory = database_cache
+
+        if state_cache is None:
+            state_cache = ValueCache(
+                Value(
+                    LiveState(
+                        current_location="",
+                        characters_in_scene=[],
+                        last_speaker="",
+                        expected_next_speaker="",
+                        memory_corrections=[],
+                    )
+                )
+            )
+        self.state_cache = state_cache
 
     @horsefunction
     async def read(self, paragraph) -> AsyncGenerator[ReadResult, GradContext]:
         class UpdatedState(BaseModel):
-            new_state: type(self.current_state.context.value)
+            new_state: type(self.state_cache.context.value)
             memory_corrections: list[str]
 
         buffer_context = await self.buffer_memory.sync()
         database_context = await self.database_memory.sync()
-        state_context = await self.current_state.sync()
+        state_context = await self.state_cache.sync()
 
         search = await self.llm.query_structured(
             Search,
@@ -158,7 +170,7 @@ class StoryReader(HorseModule):
             ),
         )
 
-        state_context = await self.current_state.load(Value(update.new_state))
+        state_context = await self.state_cache.load(Value(update.new_state))
         buffer_context = await self.buffer_memory.load(paragraph)
 
         new_info = Value({i.query: i.result for i in new_info.information})
