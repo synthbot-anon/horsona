@@ -29,14 +29,14 @@ async def extract_object(
         predecessors=list(variable_inputs.values()),
     )
 
-    context = yield result
+    grad_context = yield result
 
-    if result not in context:
+    if result not in grad_context:
         return
 
     await assign_feedback(
         llm,
-        context,
+        grad_context,
         result,
         variable_inputs,
     )
@@ -44,7 +44,7 @@ async def extract_object(
 
 async def assign_feedback(
     llm: AsyncLLMEngine,
-    context: dict[HorseVariable, list[HorseGradient]],
+    grad_context: dict[HorseVariable, list[HorseGradient]],
     result: HorseVariable,
     inputs,
 ):
@@ -59,7 +59,7 @@ async def assign_feedback(
         FeedbackAssignments,
         INPUTS=inputs,
         RESULT=result,
-        FEEDBACK=context[result],
+        FEEDBACK=grad_context[result],
         TASK=(
             "The FEEDBACK was given when extracting RESULT from INPUTS. "
             f"Based on the errors, determine which list of FEEDBACK items applies for each INPUT {list(inputs.keys())}."
@@ -71,8 +71,9 @@ async def assign_feedback(
             continue
 
         variable = inputs[change.input_name]
-
         if not isinstance(variable, HorseVariable):
             continue
+        if variable not in grad_context:
+            continue
 
-        context[variable].extend([Value(x) for x in change.relevant_feedback])
+        grad_context[variable].extend([Value(x) for x in change.relevant_feedback])

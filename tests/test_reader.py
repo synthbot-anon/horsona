@@ -45,3 +45,20 @@ async def test_reader(reasoning_llm):
         "computer #12" in reader.state_cache.context.value.current_location.lower()
         or "pawtucket" in reader.state_cache.context.value.current_location.lower()
     )
+
+
+# @pytest.mark.asyncio
+# async def test_generate_character_card(reasoning_llm):
+#     story_paragraphs = STORY.split("\n")
+#     reader = StoryReader(reasoning_llm)
+
+#     # When reading, have it maintain details character info
+#     # Probably need to add an llm query to do this
+
+#     for p in story_paragraphs:
+#         # Figure out what's new in the paragraph
+#         loss: ReadResult = await reader.read(Value(p))
+
+#         # Update the reader's state based on what was read
+#         gradients = await loss.backward(reader.parameters())
+#         await step(gradients)

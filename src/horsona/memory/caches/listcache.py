@@ -42,7 +42,7 @@ class ListCacheContext(HorseVariable):
         raise NotImplementedError("ListCacheContext does not support gradients")
 
 
-class ListCache(Cache):
+class ListCache(Cache[ListCacheContext]):
     context: ListCacheContext
 
     def __init__(self, size):
@@ -52,7 +52,7 @@ class ListCache(Cache):
     @horsefunction
     async def load(self, item: Value) -> AsyncGenerator[ListCacheContext, GradContext]:
         old_context = self.context
-        new_context = ListCacheContext()
+        new_context = ListCacheContext(predecessors=[old_context, item])
         new_context.extend(old_context)
 
         new_context.append(item)

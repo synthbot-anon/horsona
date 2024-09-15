@@ -1,3 +1,4 @@
+import asyncio
 from typing import AsyncGenerator
 
 from dotenv import load_dotenv
@@ -35,19 +36,6 @@ class LiveState(BaseModel):
     memory_corrections: list[str]
 
 
-class Search(BaseModel):
-    queries: list[str]
-
-
-class QueryInfo(BaseModel):
-    query: str
-    result: str
-
-
-class Information(BaseModel):
-    information: list[QueryInfo]
-
-
 class ReadResult(HorseVariable):
     def __init__(
         self,
@@ -76,7 +64,8 @@ class StoryReader(HorseModule):
         setting_db: Database = None,
         buffer_cache: Cache = None,
         database_cache: Cache = None,
-        state_cache: Cache = None,
+        state_cache: ValueCache = None,
+        postprocessors=None,
     ):
         super().__init__()
         self.llm = llm
@@ -112,23 +101,30 @@ class StoryReader(HorseModule):
                     )
                 )
             )
-        self.state_cache = state_cache
+        self.state_cache: ValueCache = state_cache
+
+        if postprocessors is None:
+            postprocessors = []
+        self.postprocessors = postprocessors
 
     @horsefunction
-    async def read(self, paragraph) -> AsyncGenerator[ReadResult, GradContext]:
+    async def read(self, paragraph: Value) -> AsyncGenerator[ReadResult, GradContext]:
         class UpdatedState(BaseModel):
-            new_state: type(self.state_cache.context.value)
+            new_state: self.state_cache.context.VALUE_TYPE
             memory_corrections: list[str]
 
         buffer_context = await self.buffer_memory.sync()
         database_context = await self.database_memory.sync()
         state_context = await self.state_cache.sync()
 
+        class Search(BaseModel):
+            queries: list[str]
+
         search = await self.llm.query_structured(
             Search,
             PREVIOUS_PARAGRAPHS=buffer_context,
             MEMORY_STATE=database_context,
-            CURRENT_STATE=state_context,
+            STORY_STATE=state_context,
             PARAGRAPH=paragraph,
             TASK=(
                 "You are trying to understand the current PARAGRAPH in a story. "
@@ -139,42 +135,90 @@ class StoryReader(HorseModule):
         )
 
         for q in search.queries:
-            database_context = await self.database_memory.load(Value(q))
+            database_context = await self.database_memory.load(
+                Value(
+                    q,
+                    predecessors=[
+                        paragraph,
+                        database_context,
+                        buffer_context,
+                        state_context,
+                    ],
+                )
+            )
 
-        update: UpdatedState = await self.llm.query_structured(
-            UpdatedState,
-            MEMORY_STATE=database_context,
-            PREVIOUS_PARAGRAPHS=buffer_context,
-            CURRENT_STATE=state_context,
-            PARAGRAPH=paragraph,
-            TASK=(
-                "Modify the CURRENT_STATE based on the PARAGRAPH. "
-                "If anything in MEMORY_STATE is incorrect, provide memory_corrections. "
-                "Your memory_corrections will be given to someone without context of where you are "
-                "in the story, so provide enough details in every individual memory_correction."
+        class QueryInfo(BaseModel):
+            query: str
+            result: str
+
+        class Information(BaseModel):
+            information: list[QueryInfo]
+
+        update, new_info = await asyncio.gather(
+            self.llm.query_structured(
+                UpdatedState,
+                MEMORY_STATE=database_context,
+                PREVIOUS_PARAGRAPHS=buffer_context,
+                STORY_STATE=state_context,
+                PARAGRAPH=paragraph,
+                TASK=(
+                    "Modify the STORY_STATE based on the PARAGRAPH. "
+                    "If anything in MEMORY_STATE is incorrect, provide memory_corrections. "
+                    "Your memory_corrections will be given to someone without context of where you are "
+                    "in the story, so provide enough details in every individual memory_correction."
+                ),
+            ),
+            self.llm.query_structured(
+                Information,
+                MEMORY_STATE=database_context,
+                PREVIOUS_PARAGRAPHS=buffer_context,
+                STORY_STATE=state_context,
+                PARAGRAPH=paragraph,
+                TASK=(
+                    "You are trying to understand the current PARAGRAPH in a story. "
+                    "The MEMORY_STATE gives context for reading the PARAGRAPH. "
+                    "You are adding information to a keyword search engine that can retrieve past information about the story state. "
+                    "Suggest keyword queries and responses so that future searches would retrieve relevant information from PARAGRAPH. "
+                    "The responses will be given to someone without context, so provide enough details in every individual response."
+                ),
             ),
         )
 
-        new_info: Information = await self.llm.query_structured(
-            Information,
-            MEMORY_STATE=database_context,
-            PREVIOUS_PARAGRAPHS=buffer_context,
-            CURRENT_STATE=state_context,
-            PARAGRAPH=paragraph,
-            TASK=(
-                "You are trying to understand the current PARAGRAPH in a story. "
-                "The MEMORY_STATE gives context for reading the PARAGRAPH. "
-                "You are adding information to a keyword search engine that can retrieve past information about the story state. "
-                "Suggest keyword queries and responses so that future searches would retrieve relevant information from PARAGRAPH. "
-                "The responses will be given to someone without context, so provide enough details in every individual response."
-            ),
+        state_context = await self.state_cache.load(
+            Value(
+                update.new_state,
+                predecessors=[
+                    paragraph,
+                    database_context,
+                    buffer_context,
+                    state_context,
+                ],
+            )
         )
 
-        state_context = await self.state_cache.load(Value(update.new_state))
-        buffer_context = await self.buffer_memory.load(paragraph)
+        updated_buffer = await asyncio.gather(
+            self.buffer_memory.load(paragraph),
+            *[
+                fn(
+                    database_context=database_context,
+                    buffer_context=buffer_context,
+                    state_context=state_context,
+                    paragraph=paragraph,
+                )
+                for fn in self.postprocessors
+            ],
+        )
 
-        new_info = Value({i.query: i.result for i in new_info.information})
-        corrections = Value(update.memory_corrections)
+        buffer_context = updated_buffer[0]
+
+        new_info = Value(
+            {i.query: i.result for i in new_info.information},
+            predecessors=[paragraph, database_context, buffer_context, state_context],
+        )
+        corrections = Value(
+            update.memory_corrections,
+            predecessors=[paragraph, database_context, buffer_context, state_context],
+        )
 
         result = ReadResult(
             database_context,

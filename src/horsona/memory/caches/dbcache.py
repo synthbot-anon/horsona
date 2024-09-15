@@ -53,7 +53,7 @@ class DatabaseCacheContext(HorseVariable):
         return self.data.items()
 
 
-class DatabaseCache(Cache):
+class DatabaseCache(Cache[DatabaseCacheContext]):
     context: DatabaseCacheContext
 
     def __init__(
@@ -76,7 +76,9 @@ class DatabaseCache(Cache):
 
         old_context = self.context
         result = await self.database.query(query.value, **self.db_query_args)
-        new_context = DatabaseCacheContext(predecessors=[query, self.database])
+        new_context = DatabaseCacheContext(
+            predecessors=[old_context, query, self.database]
+        )
         new_context.update(old_context)
 
         for key, value in result.items():
@@ -120,4 +122,5 @@ class DatabaseCache(Cache):
 
         grad_context = yield new_context
 
-        grad_context[old_context].extend(grad_context[new_context])
+        if old_context in grad_context:
+            grad_context[old_context].extend(grad_context[new_context])

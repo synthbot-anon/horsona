@@ -9,5 +9,7 @@ from .basic import GradContext, HorseGradient, HorseVariable, horsefunction
 async def apply_loss(
     arg: HorseVariable, loss: HorseGradient
 ) -> AsyncGenerator[Value, GradContext]:
-    context = yield Value(loss, predecessors=[arg])
-    context[arg].append(loss)
+    grad_context = yield Value(loss, predecessors=[arg])
+    if arg not in grad_context:
+        return
+    grad_context[arg].append(loss)

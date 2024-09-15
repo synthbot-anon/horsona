@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -51,6 +52,8 @@ class HorseVariable(ABC):
         topo: list[HorseVariable] = []
         visited = set()
         in_path = {}
+        pending_parents = defaultdict(set)
+        children = defaultdict(set)
 
         def build_topo(v: HorseVariable) -> bool:
             if v in visited:
@@ -65,6 +68,8 @@ class HorseVariable(ABC):
                 for predecessor in v.predecessors:
                     if build_topo(predecessor):
                         is_in_path = True
+                        pending_parents[predecessor].add(v)
+                        children[v].add(predecessor)
 
             # If the current variable is on a path to any leaf variable, add it to topo
             if is_in_path:
@@ -81,9 +86,17 @@ class HorseVariable(ABC):
         grad_context = {k: [] for k in topo}
         grad_context = MappingProxyType(grad_context)
 
-        for v in reversed(topo):
+        async def calculate_gradients(v: HorseVariable):
             if v.grad_fn is not None:
                 await v.grad_fn(grad_context)
+            tasks = []
+            for child in children[v]:
+                pending_parents[child].remove(v)
+                if not pending_parents[child]:
+                    tasks.append(calculate_gradients(child))
+            await asyncio.gather(*tasks)
+
+        await calculate_gradients(self)
 
         return grad_context
 
@@ -186,6 +199,8 @@ class HorseModule(ABC):
 
 
 async def step(gradients: dict[HorseVariable, list[HorseGradient]]):
+    tasks = []
     for v, g in gradients.items():
         if v.requires_grad:
-            await v.apply_gradients(g)
+            tasks.append(v.apply_gradients(g))
+    await asyncio.gather(*tasks)

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 from horsona.autodiff.basic import HorseModule, HorseVariable
 
@@ -7,7 +7,7 @@ C = TypeVar("C", bound=HorseVariable)
 Q = TypeVar("Q", bound=HorseVariable)
 
 
-class Cache(HorseModule, ABC):
+class Cache(HorseModule, Generic[C], ABC):
     context: C
 
     def __init__(self, context: C):
