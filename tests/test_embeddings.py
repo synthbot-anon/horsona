@@ -1,8 +1,7 @@
 import pytest
 from dotenv import load_dotenv
-
-from horsona.autodiff.basic import HorseOptimizer
-from horsona.autodiff.losses import ConstantLoss
+from horsona.autodiff.basic import step
+from horsona.autodiff.losses import apply_loss
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 from horsona.memory.embeddings.index import EmbeddingIndex, IndexChanges
@@ -63,11 +62,8 @@ async def test_apply_gradients(embedding_model):
     index = EmbeddingIndex(
         "State of the story setting", embedding_model, requires_grad=True
     )
-    apply_loss = ConstantLoss()
 
     await index.extend(SAMPLE_DATA[:])
-
-    optimizer = HorseOptimizer([index])
 
     loss = await apply_loss(
         index,
@@ -89,8 +85,8 @@ async def test_apply_gradients(embedding_model):
         ),
     )
 
-    gradients = await loss.backward()
-    await optimizer.step(gradients)
+    gradients = await loss.backward([index])
+    await step(gradients)
 
     assert len(index.values) == len(SAMPLE_DATA)
 

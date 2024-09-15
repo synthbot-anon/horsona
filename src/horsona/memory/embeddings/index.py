@@ -117,7 +117,7 @@ class EmbeddingIndex(HorseVariable):
 
         new_embeddings = await self.model.get_data_embeddings(new_values)
 
-        if self.embeddings == None:
+        if self.embeddings is None:
             self.embeddings = new_embeddings
         else:
             self.embeddings = torch.cat([self.embeddings, new_embeddings])
@@ -141,7 +141,7 @@ class EmbeddingIndex(HorseVariable):
         for i in indices:
             try:
                 locations.append(self.indices.index(i))
-            except:
+            except ValueError:
                 pass
 
         # Delete the values and indices at the specified locations

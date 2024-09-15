@@ -3,7 +3,7 @@ from typing import TypeVar, Union
 
 from pydantic import BaseModel
 
-__all__ = ["AsyncLLMEngine", "LLMEngine"]
+__all__ = ["AsyncLLMEngine"]
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])

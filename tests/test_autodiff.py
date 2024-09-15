@@ -1,11 +1,10 @@
 import pytest
-from pydantic import BaseModel
-
-from horsona.autodiff.basic import HorseOptimizer
-from horsona.autodiff.functions import TextExtractor
-from horsona.autodiff.losses import ConstantLoss
+from horsona.autodiff.basic import step
+from horsona.autodiff.functions import extract_object
+from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Parameter
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
+from pydantic import BaseModel
 
 
 @pytest.fixture(scope="module")
@@ -18,24 +17,22 @@ def reasoning_llm():
 @pytest.mark.asyncio
 async def test_autodiff(reasoning_llm):
     input_text = Parameter("My name is Luna", reasoning_llm)
-    name_extractor_fn = TextExtractor(reasoning_llm)
 
     class PonyName(BaseModel):
         name: str
 
-    extracted_name = await name_extractor_fn(
+    extracted_name = await extract_object(
+        reasoning_llm,
         PonyName,
         TEXT=input_text,
         TASK="Extract the name from the TEXT.",
     )
 
-    name_loss_fn = ConstantLoss("The name should be Celestia")
-    title_loss_fn = ConstantLoss("They should be addressed as Princess")
-    optimizer = HorseOptimizer([input_text])
+    loss = await apply_loss(
+        extracted_name, "The name should be Celestia"
+    ) + await apply_loss(extracted_name, "They should be addressed as Princess")
 
-    loss = await name_loss_fn(extracted_name) + await title_loss_fn(extracted_name)
-
-    gradients = await loss.backward()
-    await optimizer.step(gradients)
+    gradients = await loss.backward([input_text])
+    await step(gradients)
 
     assert input_text.value == "My name is Princess Celestia"

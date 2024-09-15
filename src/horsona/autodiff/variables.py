@@ -1,4 +1,4 @@
-from typing import TypeVar, Union
+from typing import Generic, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -8,10 +8,24 @@ from horsona.llm.base_engine import AsyncLLMEngine
 HorseType = TypeVar("HorseType", bound=Union[BaseModel, dict, int, float, bool, list])
 
 
-class Value(HorseVariable):
+class Value(HorseVariable, Generic[HorseType]):
+    value: HorseType
+    VALUE_TYPE: Optional[Type[HorseType]] = None
+
     def __init__(self, value: HorseType, **kwargs):
         super().__init__(**kwargs)
+        if self.VALUE_TYPE and isinstance(value, dict):
+            value = self.VALUE_TYPE(value)
+        if self.VALUE_TYPE is None:
+            self.VALUE_TYPE = type(value)
         self.value = value
+
+    async def derive(self, value: HorseType, **kwargs):
+        if self.VALUE_TYPE and isinstance(value, dict):
+            value = self.VALUE_TYPE(value)
+        if self.VALUE_TYPE is None:
+            self.VALUE_TYPE = type(value)
+        return Value(value, **kwargs)
 
     async def json(self):
         return self.value

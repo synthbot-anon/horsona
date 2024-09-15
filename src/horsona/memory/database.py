@@ -48,7 +48,7 @@ class Database(HorseVariable, ABC):
         pass
 
     @abstractmethod
-    async def query(self, query, topk=1) -> dict:
+    async def query(self, query, **kwargs) -> dict:
         pass
 
     @abstractmethod

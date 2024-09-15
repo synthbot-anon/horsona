@@ -1,6 +1,5 @@
 import pytest
-
-from horsona.autodiff.basic import HorseOptimizer
+from horsona.autodiff.basic import step
 from horsona.autodiff.variables import Value
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 from horsona.llm.fireworks_engine import AsyncFireworksEngine
@@ -27,15 +26,13 @@ async def test_reader(reasoning_llm):
     story_paragraphs = STORY.split("\n")
     reader = StoryReader(reasoning_llm)
 
-    optimizer = HorseOptimizer(reader.parameters())
-
     for p in story_paragraphs:
         # Figure out what's new in the paragraph
         loss: ReadResult = await reader.read(Value(p))
 
         # Update the reader's state based on what was read
-        gradients = await loss.backward()
-        await optimizer.step(gradients)
+        gradients = await loss.backward(reader.parameters())
+        await step(gradients)
 
     assert len(reader.buffer_memory.context) > 0
     assert len(reader.database_memory.context) > 0

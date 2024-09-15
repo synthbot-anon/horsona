@@ -1,16 +1,16 @@
-from typing import Generator
-
 import pytest
 from dotenv import load_dotenv
-
-from horsona.autodiff.basic import HorseOptimizer
-from horsona.autodiff.losses import ConstantLoss
+from horsona.autodiff.basic import step
+from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
-from horsona.memory.database import (DatabaseOpGradient, DatabaseTextGradient,
-                                     DatabaseUpdate)
-from horsona.memory.dbcache import DatabaseCache
+from horsona.memory.caches.dbcache import DatabaseCache
+from horsona.memory.database import (
+    DatabaseOpGradient,
+    DatabaseTextGradient,
+    DatabaseUpdate,
+)
 from horsona.memory.embeddings.database import EmbeddingDatabase
 from horsona.memory.embeddings.index import EmbeddingIndex
 from horsona.memory.embeddings.models import HuggingFaceBGEModel
@@ -47,9 +47,6 @@ async def test_update_database(llm, embedding_model):
 
     cache = DatabaseCache(llm, database, 5)
 
-    optimizer = HorseOptimizer([database])
-    apply_loss = ConstantLoss()
-
     context = await cache.load(Value("Who is Honeycrisp?"))
     loss = await apply_loss(
         context,
@@ -66,8 +63,8 @@ async def test_update_database(llm, embedding_model):
         ),
     )
 
-    gradients = await loss.backward()
-    await optimizer.step(gradients)
+    gradients = await loss.backward([database])
+    await step(gradients)
 
     result = await database.query("Who is Honeycrisp")
     assert "A blue earth pony mare, Honeycrisp, appeared on screen" in result.values()

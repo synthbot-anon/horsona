@@ -4,10 +4,14 @@ from typing import TypeVar, Union
 from pydantic import BaseModel
 
 from .base_engine import AsyncLLMEngine
-from .engine_utils import (compile_user_prompt, generate_obj_query_messages,
-                           parse_block_response, parse_obj_response)
+from .engine_utils import (
+    compile_user_prompt,
+    generate_obj_query_messages,
+    parse_block_response,
+    parse_obj_response,
+)
 
-__all__ = ["AsyncChatEngine", "ChatEngine"]
+__all__ = ["AsyncChatEngine"]
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])

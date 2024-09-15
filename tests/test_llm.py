@@ -1,10 +1,9 @@
 from typing import Generator
 
 import pytest
-from pydantic import BaseModel
-
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
+from pydantic import BaseModel
 
 
 @pytest.fixture(scope="module")

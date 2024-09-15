@@ -1,22 +1,13 @@
+from typing import AsyncGenerator
+
 from horsona.autodiff.variables import Value
 
-from .basic import HorseFunction, HorseGradient, HorseVariable
+from .basic import GradContext, HorseGradient, HorseVariable, horsefunction
 
 
-class ConstantLoss(HorseFunction):
-    def __init__(self, loss: HorseGradient = None):
-        self.loss = loss
-
-    async def forward(
-        self, arg: HorseVariable, loss: HorseGradient = None
-    ) -> HorseVariable:
-        return Value(loss or self.loss, predecessors=[arg])
-
-    async def backward(
-        self,
-        context: dict[HorseVariable, list[HorseGradient]],
-        result: HorseVariable,
-        arg: HorseVariable,
-        loss: HorseGradient = None,
-    ):
-        return {arg: [loss or self.loss]}
+@horsefunction
+async def apply_loss(
+    arg: HorseVariable, loss: HorseGradient
+) -> AsyncGenerator[Value, GradContext]:
+    context = yield Value(loss, predecessors=[arg])
+    context[arg].append(loss)
