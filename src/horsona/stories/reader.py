@@ -184,41 +184,41 @@ class StoryReader(HorseModule):
             ),
         )
 
-        state_context = await self.state_cache.load(
-            Value(
-                update.new_state,
-                predecessors=[
-                    paragraph,
-                    database_context,
-                    buffer_context,
-                    state_context,
-                ],
-            )
-        )
-
-        updated_buffer = await asyncio.gather(
-            self.buffer_memory.load(paragraph),
-            *[
-                fn(
-                    database_context=database_context,
-                    buffer_context=buffer_context,
-                    state_context=state_context,
-                    paragraph=paragraph,
-                )
-                for fn in self.postprocessors
-            ],
-        )
-
-        buffer_context = updated_buffer[0]
-
         new_info = Value(
             {i.query: i.result for i in new_info.information},
             predecessors=[paragraph, database_context, buffer_context, state_context],
         )
+
         corrections = Value(
             update.memory_corrections,
             predecessors=[paragraph, database_context, buffer_context, state_context],
         )
+
+        new_state_value = Value(
+            update.new_state,
+            predecessors=[
+                paragraph,
+                database_context,
+                buffer_context,
+                state_context,
+            ],
+        )
+
+        buffer_context, state_context = (
+            await asyncio.gather(
+                self.buffer_memory.load(paragraph),
+                self.state_cache.load(new_state_value),
+                *[
+                    fn(
+                        database_context=database_context,
+                        buffer_context=buffer_context,
+                        state_context=state_context,
+                        paragraph=paragraph,
+                    )
+                    for fn in self.postprocessors
+                ],
+            )
+        )[:2]
 
         result = ReadResult(
             database_context,
@@ -228,15 +228,17 @@ class StoryReader(HorseModule):
             corrections,
             predecessors=[paragraph, database_context, buffer_context, state_context],
         )
+
         grad_context = yield result
 
-        if result.corrections.value:
-            grad_context[result.database_context].append(
-                DatabaseTextGradient(
-                    context=result.database_context, change=result.corrections
+        if database_context in grad_context:
+            if result.corrections.value:
+                grad_context[result.database_context].append(
+                    DatabaseTextGradient(
+                        context=result.database_context, change=result.corrections
+                    )
                 )
-            )
-        if result.new_information.value:
-            grad_context[result.database_context].append(
-                DatabaseInsertGradient(rows=result.new_information)
-            )
+            if result.new_information.value:
+                grad_context[result.database_context].append(
+                    DatabaseInsertGradient(rows=result.new_information)
+                )
