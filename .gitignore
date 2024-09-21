@@ -46,6 +46,7 @@ secrets.yml
 # Ignore backup files
 *.bak
 *.backup
+*.swp
 *~
 
 # Ignore coverage reports
