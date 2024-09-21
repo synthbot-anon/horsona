@@ -1,5 +1,6 @@
 import pytest
 from dotenv import load_dotenv
+
 from horsona.llm.anthropic_engine import AsyncAnthropicEngine
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
@@ -46,7 +47,9 @@ def groq_llama31_70b() -> AsyncLLMEngine:
         model="llama3-70b-8192",
         rate_limits=[
             # Interval, Max Calls, Max Tokens
-            (1, 3, 6000)(60, 30, 6000)(3600 * 24, 14400, None),
+            (1, 3, 6000),
+            (60, 30, 6000),
+            (3600 * 24, 14400, None),
         ],
     )
 
