@@ -34,4 +34,4 @@ class AsyncTogetherEngine(AsyncChatEngine):
         response = await self.client.chat.completions.create(
             model=self.model, stream=False, **kwargs
         )
-        return response.choices[0].message.content
+        return response.choices[0].message.content, response.usage.total_tokens

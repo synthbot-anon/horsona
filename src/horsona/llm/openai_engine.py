@@ -1,9 +1,9 @@
-from cerebras.cloud.sdk import AsyncCerebras
+from openai import AsyncOpenAI
 
 from .oai_engine import AsyncOAIEngine
 
 
-class AsyncCerebrasEngine(AsyncOAIEngine):
+class AsyncOpenAIEngine(AsyncOAIEngine):
     """
     An asynchronous implementation of ChatEngine for interacting with Cerebras models.
 
@@ -20,7 +20,7 @@ class AsyncCerebrasEngine(AsyncOAIEngine):
     def __init__(self, model: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model = model
-        self.client = AsyncCerebras()
+        self.client = AsyncOpenAI()
 
     async def create(self, **kwargs):
         return await self.client.chat.completions.create(model=self.model, **kwargs)

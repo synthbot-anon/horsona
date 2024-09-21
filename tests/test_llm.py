@@ -6,11 +6,6 @@ from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 from pydantic import BaseModel
 
 
-@pytest.fixture(scope="module")
-def llm() -> Generator[AsyncLLMEngine, None, None]:
-    yield AsyncCerebrasEngine(model="llama3.1-70b")
-
-
 @pytest.mark.asyncio
 async def test_chat_engine(llm: AsyncLLMEngine):
     class Response(BaseModel):

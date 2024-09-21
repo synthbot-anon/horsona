@@ -2,10 +2,10 @@ import os
 
 from fireworks.client import AsyncFireworks
 
-from .chat_engine import AsyncChatEngine
+from horsona.llm.oai_engine import AsyncOAIEngine
 
 
-class AsyncFireworksEngine(AsyncChatEngine):
+class AsyncFireworksEngine(AsyncOAIEngine):
     """
     An asynchronous implementation of ChatEngine for interacting with Fireworks models.
 
@@ -32,8 +32,7 @@ class AsyncFireworksEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncFireworks(api_key=os.environ["FIREWORKS_API_KEY"])
 
-    async def query(self, **kwargs):
-        response = await self.client.chat.completions.acreate(
+    async def create(self, **kwargs):
+        return await self.client.chat.completions.acreate(
             model=self.model, stream=False, **kwargs
         )
-        return response.choices[0].message.content

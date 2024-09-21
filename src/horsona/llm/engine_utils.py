@@ -1,4 +1,5 @@
 import json
+from typing import Type
 from xml.sax.saxutils import escape as xml_escape
 
 from pydantic import BaseModel
@@ -55,7 +56,7 @@ async def compile_user_prompt(**kwargs):
     return "\n\n".join(prompt_pieces)
 
 
-def _compile_obj_system_prompt(response_model: type[BaseModel]):
+def _compile_obj_system_prompt(response_model: Type[BaseModel]):
     """
     Compile a system prompt for a given response model.
 
@@ -78,7 +79,7 @@ def _compile_obj_system_prompt(response_model: type[BaseModel]):
 
 
 async def generate_obj_query_messages(
-    response_model: type[BaseModel], prompt_args: dict
+    response_model: Type[BaseModel], prompt_args: dict
 ):
     """
     Generate messages for an object query.
@@ -105,7 +106,7 @@ async def generate_obj_query_messages(
     ]
 
 
-def parse_obj_response(response_model: type[BaseModel], content: str):
+def parse_obj_response(response_model: Type[BaseModel], content: str):
     """
     Parse an object response from the LLM.
 

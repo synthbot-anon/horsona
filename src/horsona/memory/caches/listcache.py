@@ -1,11 +1,7 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Generic, TypeVar
 
-from horsona.autodiff.basic import (
-    GradContext,
-    HorseVariable,
-    horsefunction,
-)
-from horsona.autodiff.variables import Value
+from horsona.autodiff.basic import GradContext, HorseVariable, horsefunction
+from horsona.autodiff.variables import HorseType, Value
 from horsona.memory.caches.cache import Cache
 
 
@@ -42,7 +38,10 @@ class ListCacheContext(HorseVariable):
         raise NotImplementedError("ListCacheContext does not support gradients")
 
 
-class ListCache(Cache[ListCacheContext]):
+T = TypeVar("T", bound=HorseType)
+
+
+class ListCache(Cache[ListCacheContext, Value[T]], Generic[T]):
     context: ListCacheContext
 
     def __init__(self, size):
@@ -50,7 +49,9 @@ class ListCache(Cache[ListCacheContext]):
         self.size = size
 
     @horsefunction
-    async def load(self, item: Value) -> AsyncGenerator[ListCacheContext, GradContext]:
+    async def load(
+        self, item: Value[T]
+    ) -> AsyncGenerator[ListCacheContext, GradContext]:
         old_context = self.context
         new_context = ListCacheContext(predecessors=[old_context, item])
         new_context.extend(old_context)

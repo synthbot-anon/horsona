@@ -51,5 +51,8 @@ class AsyncPerplexityEngine(AsyncChatEngine):
                 url, json=payload, headers=headers, timeout=None
             )
 
-        content = response.json()["choices"][0]["message"]["content"]
-        return content
+        response_json = response.json()
+        content = response_json["choices"][0]["message"]["content"]
+        total_tokens = response_json["usage"]["total_tokens"]
+
+        return content, total_tokens

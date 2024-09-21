@@ -1,11 +1,7 @@
 from collections import OrderedDict
 from typing import AsyncGenerator
 
-from horsona.autodiff.basic import (
-    GradContext,
-    HorseVariable,
-    horsefunction,
-)
+from horsona.autodiff.basic import GradContext, HorseVariable, horsefunction
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.caches.cache import Cache
@@ -53,7 +49,7 @@ class DatabaseCacheContext(HorseVariable):
         return self.data.items()
 
 
-class DatabaseCache(Cache[DatabaseCacheContext]):
+class DatabaseCache(Cache[DatabaseCacheContext, Value[str]]):
     context: DatabaseCacheContext
 
     def __init__(
@@ -70,7 +66,9 @@ class DatabaseCache(Cache[DatabaseCacheContext]):
         self.db_query_args = db_query_args
 
     @horsefunction
-    async def load(self, query: Value) -> AsyncGenerator[DatabaseCacheContext, None]:
+    async def load(
+        self, query: Value[str]
+    ) -> AsyncGenerator[DatabaseCacheContext, None]:
         if not isinstance(query.value, str):
             raise ValueError("Query must be a string")
 

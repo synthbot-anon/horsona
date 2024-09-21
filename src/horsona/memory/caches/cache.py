@@ -7,7 +7,7 @@ C = TypeVar("C", bound=HorseVariable)
 Q = TypeVar("Q", bound=HorseVariable)
 
 
-class Cache(HorseModule, Generic[C], ABC):
+class Cache(HorseModule, Generic[C, Q], ABC):
     context: C
 
     def __init__(self, context: C):

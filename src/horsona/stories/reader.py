@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional, Protocol
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -65,7 +65,6 @@ class StoryReader(HorseModule):
         buffer_cache: Cache = None,
         database_cache: Cache = None,
         state_cache: ValueCache = None,
-        postprocessors=None,
     ):
         super().__init__()
         self.llm = llm
@@ -102,10 +101,6 @@ class StoryReader(HorseModule):
                 )
             )
         self.state_cache: ValueCache = state_cache
-
-        if postprocessors is None:
-            postprocessors = []
-        self.postprocessors = postprocessors
 
     @horsefunction
     async def read(self, paragraph: Value) -> AsyncGenerator[ReadResult, GradContext]:
@@ -204,21 +199,10 @@ class StoryReader(HorseModule):
             ],
         )
 
-        buffer_context, state_context = (
-            await asyncio.gather(
-                self.buffer_memory.load(paragraph),
-                self.state_cache.load(new_state_value),
-                *[
-                    fn(
-                        database_context=database_context,
-                        buffer_context=buffer_context,
-                        state_context=state_context,
-                        paragraph=paragraph,
-                    )
-                    for fn in self.postprocessors
-                ],
-            )
-        )[:2]
+        buffer_context, state_context = await asyncio.gather(
+            self.buffer_memory.load(paragraph),
+            self.state_cache.load(new_state_value),
+        )
 
         result = ReadResult(
             database_context,
