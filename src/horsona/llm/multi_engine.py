@@ -1,20 +1,12 @@
 import asyncio
 import inspect
 import sys
-from functools import wraps
 from random import random
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 from horsona.llm.base_engine import AsyncLLMEngine
 
 T = TypeVar("T", bound=AsyncLLMEngine)
-
-# TODO:
-# This should be a function, not a class, so it can return an instance of the right type
-# It should wrap the query method for all engines
-# It should accept per-LLM rate limits
-# It should handle fallbacks
-# It should accept a max_retry parameter
 
 
 def create_multi_engine(
