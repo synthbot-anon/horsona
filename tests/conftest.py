@@ -32,7 +32,9 @@ def cerebras_llama31_8b() -> AsyncLLMEngine:
         model="llama3.1-8b",
         rate_limits=[
             # Interval, Max Calls, Max Tokens
-            (1, 3, 240000)(60, 120, 240000)(3600, 2600, 4000000),
+            (1, 3, 240000),
+            (60, 120, 240000),
+            (3600, 2600, 4000000),
             (3600 * 24, 57600, 4000000),
         ],
     )
@@ -55,7 +57,8 @@ def fireworks_llama31_70b() -> AsyncLLMEngine:
         model="accounts/fireworks/models/llama-v3p1-70b-instruct",
         rate_limits=[
             # Interval (seconds), Max Calls, Max Tokens
-            (60, 600, None)
+            (1, 3, None),
+            (60, 600, None),
         ],
     )
 
@@ -64,7 +67,11 @@ def fireworks_llama31_70b() -> AsyncLLMEngine:
 def openai_gpt4o_mini() -> AsyncLLMEngine:
     return AsyncOpenAIEngine(
         model="gpt-4o-mini",
-        rate_limits=[(60, 500, 200000), (3600 * 24, 10000, None)],
+        rate_limits=[
+            # Interval (seconds), Max Calls, Max Tokens
+            (60, 500, 200000),
+            (3600 * 24, 10000, None),
+        ],
     )
 
 
@@ -72,7 +79,11 @@ def openai_gpt4o_mini() -> AsyncLLMEngine:
 def anthropic_claude3_haiku() -> AsyncLLMEngine:
     return AsyncAnthropicEngine(
         model="claude-3-haiku-20240307",
-        rate_limits=[(60, 50, 50000), (3600 * 24, None, 5000000)],
+        rate_limits=[
+            # Interval (seconds), Max Calls, Max Tokens
+            (60, 50, 50000),
+            (3600 * 24, None, 5000000),
+        ],
     )
 
 

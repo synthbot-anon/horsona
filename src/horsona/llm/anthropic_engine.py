@@ -34,8 +34,9 @@ class AsyncAnthropicEngine(AsyncChatEngine):
         response = await self.client.messages.create(
             system="\n\n".join(system_msg) if system_msg else None,
             model=self.model,
-            max_tokens=2**13,
+            max_tokens=2**12,
             **kwargs,
         )
 
-        return response.content[0].text, response.usage.total_tokens
+        total_tokens = response.usage.input_tokens + response.usage.output_tokens
+        return response.content[0].text, total_tokens

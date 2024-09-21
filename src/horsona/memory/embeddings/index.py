@@ -82,6 +82,8 @@ class EmbeddingIndex(HorseVariable):
 
         query_emb = await self.model.get_query_embeddings([query])
         matches = (self.embeddings @ query_emb.T).squeeze()
+        if matches.shape[0] == 0:
+            return {}
         topk = min(topk, len(matches))
         locations = torch.topk(matches, topk).indices.tolist()
         indices = [self.indices[i] for i in locations]
