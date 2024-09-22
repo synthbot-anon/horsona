@@ -5,7 +5,7 @@ from openai import AsyncOpenAI
 from .oai_engine import AsyncOAIEngine
 
 
-class AsyncOpenAIEngine(AsyncOAIEngine):
+class AsyncOpenRouterEngine(AsyncOAIEngine):
     """
     An asynchronous implementation of ChatEngine for interacting with Cerebras models.
 
