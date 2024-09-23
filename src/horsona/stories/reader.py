@@ -4,23 +4,16 @@ from typing import AsyncGenerator, Optional, Protocol
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from horsona.autodiff.basic import (
-    GradContext,
-    HorseModule,
-    HorseVariable,
-    horsefunction,
-)
+from horsona.autodiff.basic import (GradContext, HorseModule, HorseVariable,
+                                    horsefunction)
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.caches.cache import Cache
 from horsona.memory.caches.dbcache import DatabaseCache
 from horsona.memory.caches.listcache import ListCache
 from horsona.memory.caches.valuecache import ValueCache
-from horsona.memory.database import (
-    Database,
-    DatabaseInsertGradient,
-    DatabaseTextGradient,
-)
+from horsona.memory.database import (Database, DatabaseInsertGradient,
+                                     DatabaseTextGradient)
 from horsona.memory.embeddings.database import EmbeddingDatabase
 from horsona.memory.embeddings.index import EmbeddingIndex
 from horsona.memory.embeddings.models import HuggingFaceBGEModel
@@ -57,7 +50,7 @@ class ReadResult(HorseVariable):
         return self.new_information
 
 
-class StoryReader(HorseModule):
+class StoryReaderModule(HorseModule):
     def __init__(
         self,
         llm: AsyncLLMEngine,

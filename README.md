@@ -52,7 +52,8 @@ poetry run pytest tests/test_llm.py
 # Target feature list
 This target feature list is incomplete:
 - Video generation (via API) alongside text generation
-- Integrations with various interfaces (SillyTavern, Risu, etc.)
+- Integrations with various text generation interfaces (SillyTavern, Risu, etc.)
+- Integration with ComfyUI
 - Automated character card adjustments
 - Lorebook generation from large text corpora
 - Splitting prompts into multiple calls for more reliable generation

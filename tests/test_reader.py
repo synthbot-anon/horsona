@@ -2,14 +2,16 @@ import asyncio
 from typing import AsyncGenerator, Optional
 
 import pytest
-from horsona.autodiff.basic import GradContext, HorseModule, horsefunction, step
+from pydantic import BaseModel
+
+from horsona.autodiff.basic import (GradContext, HorseModule, horsefunction,
+                                    step)
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 from horsona.llm.fireworks_engine import AsyncFireworksEngine
 from horsona.memory.caches.cache import Cache
-from horsona.stories.reader import LiveState, ReadResult, StoryReader
-from pydantic import BaseModel
+from horsona.stories.reader import LiveState, ReadResult, StoryReaderModule
 
 STORY = """James looked skeptically at his friend David as he sat down at computer #12.
 David had won the Hasbro raffle for one of fifteen all-expenses-paid trips for two to Pawtucket, Rhode Island to play the first alpha build of the official My Little Pony MMO: Equestria Online. Hasbro had claimed that a game that revolved so heavily around friendship needed actual friends to test properly.
@@ -20,7 +22,7 @@ David scoffed. “I know you. What was that Korean MMO with the little girls tha
 @pytest.mark.asyncio
 async def test_reader(reasoning_llm):
     story_paragraphs = STORY.split("\n")
-    reader = StoryReader(reasoning_llm)
+    reader = StoryReaderModule(reasoning_llm)
 
     for p in story_paragraphs:
         # Figure out what's new in the paragraph
@@ -161,7 +163,7 @@ class CharacterCardContext(
 async def test_generate_character_card(reasoning_llm: AsyncLLMEngine):
     story_paragraphs = STORY.split("\n")
 
-    reader = StoryReader(reasoning_llm)
+    reader = StoryReaderModule(reasoning_llm)
     characters = CharacterCardContext(reasoning_llm)
 
     # When reading, have it maintain details character info
