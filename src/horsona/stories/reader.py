@@ -4,16 +4,23 @@ from typing import AsyncGenerator, Optional, Protocol
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from horsona.autodiff.basic import (GradContext, HorseModule, HorseVariable,
-                                    horsefunction)
+from horsona.autodiff.basic import (
+    GradContext,
+    HorseModule,
+    HorseVariable,
+    horsefunction,
+)
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.caches.cache import Cache
-from horsona.memory.caches.dbcache import DatabaseCache
-from horsona.memory.caches.listcache import ListCache
+from horsona.memory.caches.dbcache import DatabaseCache, DatabaseCacheContext
+from horsona.memory.caches.listcache import ListCache, ListCacheContext
 from horsona.memory.caches.valuecache import ValueCache
-from horsona.memory.database import (Database, DatabaseInsertGradient,
-                                     DatabaseTextGradient)
+from horsona.memory.database import (
+    Database,
+    DatabaseInsertGradient,
+    DatabaseTextGradient,
+)
 from horsona.memory.embeddings.database import EmbeddingDatabase
 from horsona.memory.embeddings.index import EmbeddingIndex
 from horsona.memory.embeddings.models import HuggingFaceBGEModel
@@ -22,32 +29,38 @@ load_dotenv()
 
 
 class LiveState(BaseModel):
-    current_location: str
-    characters_in_scene: list[str]
-    last_speaker: str
-    expected_next_speaker: str
-    memory_corrections: list[str]
+    current_location: str = "unknown"
+    characters_in_scene: list[str] = []
+    last_speaker: str = "none"
+    expected_next_speaker: str = "none"
+    memory_corrections: list[str] = []
 
 
-class ReadResult(HorseVariable):
+class ReadContext(HorseVariable):
     def __init__(
         self,
-        database_context: DatabaseCache,
-        buffer_context: ListCache,
+        database_context: DatabaseCacheContext,
+        buffer_context: HorseVariable,
         state_context: Value,
-        new_information: Value,
-        corrections: Value,
-        **kwargs,
     ):
-        super().__init__(**kwargs)
+        super().__init__(predecessors=[database_context, buffer_context, state_context])
         self.database_context = database_context
         self.buffer_context = buffer_context
         self.state_context = state_context
-        self.new_information = new_information
-        self.corrections = corrections
 
     async def json(self):
-        return self.new_information
+        return {
+            "setting_info": self.database_context,
+            "recent_paragraphs": self.buffer_context,
+            "story_state": self.state_context,
+        }
+
+
+class ReadContextLoss(HorseVariable):
+    def __init__(self, new_information: Value, corrections: Value):
+        super().__init__(predecessors=[new_information, corrections])
+        self.new_information = new_information
+        self.corrections = corrections
 
 
 class StoryReaderModule(HorseModule):
@@ -82,21 +95,10 @@ class StoryReaderModule(HorseModule):
         self.database_memory = database_cache
 
         if state_cache is None:
-            state_cache = ValueCache(
-                Value(
-                    LiveState(
-                        current_location="",
-                        characters_in_scene=[],
-                        last_speaker="",
-                        expected_next_speaker="",
-                        memory_corrections=[],
-                    )
-                )
-            )
+            state_cache = ValueCache(Value(LiveState()))
         self.state_cache: ValueCache = state_cache
 
-    @horsefunction
-    async def read(self, paragraph: Value) -> AsyncGenerator[ReadResult, GradContext]:
+    async def read(self, paragraph: Value) -> tuple[ReadContext, ReadContextLoss]:
         class UpdatedState(BaseModel):
             new_state: self.state_cache.context.VALUE_TYPE
             memory_corrections: list[str]
@@ -174,12 +176,12 @@ class StoryReaderModule(HorseModule):
 
         new_info = Value(
             {i.query: i.result for i in new_info.information},
-            predecessors=[paragraph, database_context, buffer_context, state_context],
+            predecessors=[database_context, buffer_context, state_context, paragraph],
         )
 
         corrections = Value(
             update.memory_corrections,
-            predecessors=[paragraph, database_context, buffer_context, state_context],
+            predecessors=[database_context, buffer_context, state_context, paragraph],
         )
 
         new_state_value = Value(
@@ -192,30 +194,33 @@ class StoryReaderModule(HorseModule):
             ],
         )
 
-        buffer_context, state_context = await asyncio.gather(
+        new_buffer_context, state_context = await asyncio.gather(
             self.buffer_memory.load(paragraph),
             self.state_cache.load(new_state_value),
         )
 
-        result = ReadResult(
+        read_context = ReadContext(
             database_context,
             buffer_context,
             state_context,
-            new_info,
-            corrections,
-            predecessors=[paragraph, database_context, buffer_context, state_context],
         )
 
-        grad_context = yield result
+        @horsefunction
+        async def read_loss() -> AsyncGenerator[ReadContextLoss, GradContext]:
+            result = ReadContextLoss(new_info, corrections)
+            grad_context = yield result
 
-        if database_context in grad_context:
-            if result.corrections.value:
-                grad_context[result.database_context].append(
-                    DatabaseTextGradient(
-                        context=result.database_context, change=result.corrections
+            if read_context.database_context in grad_context:
+                if result.corrections.value:
+                    grad_context[read_context.database_context].append(
+                        DatabaseTextGradient(
+                            context=read_context.database_context,
+                            change=result.corrections,
+                        )
                     )
-                )
-            if result.new_information.value:
-                grad_context[result.database_context].append(
-                    DatabaseInsertGradient(rows=result.new_information)
-                )
+                if result.new_information.value:
+                    grad_context[read_context.database_context].append(
+                        DatabaseInsertGradient(rows=result.new_information)
+                    )
+
+        return read_context, await read_loss()

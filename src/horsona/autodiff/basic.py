@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections import defaultdict
 from functools import wraps
 from types import MappingProxyType
@@ -34,12 +34,15 @@ class HorseVariable(ABC):
         self.predecessors = set(predecessors)
         self.requires_grad = requires_grad
 
-    @abstractmethod
     async def json(self):
-        pass
+        raise NotImplementedError(
+            f"Class {self.__class__.__name__} can't be passed to LLMEngines since it doesn't implement json"
+        )
 
     async def apply_gradients(self, gradients: list[HorseGradient]):
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"Class {self.__class__.__name__} can't accept gradients since it doesn't implement apply_gradients"
+        )
 
     async def backward(
         self, leaves: Collection["HorseVariable"]
@@ -120,10 +123,6 @@ class HorseVariable(ABC):
 P = ParamSpec("P")
 T = TypeVar("T")
 GradContext = defaultdict[HorseVariable, list[HorseGradient]]
-
-
-class GradContext:
-    pass
 
 
 @overload

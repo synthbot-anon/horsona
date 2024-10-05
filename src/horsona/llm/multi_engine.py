@@ -27,7 +27,6 @@ def create_multi_engine(
 
             for _ in range(_max_retries + 1):
                 selection = select_engine()
-                print("using", selection)
                 if _backoffs[selection] >= 0:
                     await asyncio.sleep(
                         random()
@@ -60,7 +59,6 @@ def create_multi_engine(
     class MultiEngine:
         def __getattr__(self, name):
             selection = select_engine()
-            print("using", selection)
             result = getattr(selection, name)
 
             if inspect.iscoroutinefunction(result):
