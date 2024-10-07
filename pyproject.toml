@@ -18,6 +18,7 @@ together = "^1.2.7"
 transformers = "^4.44.2"
 anthropic = "^0.34.2"
 openai = "^1.45.1"
+aiofiles = "^24.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"

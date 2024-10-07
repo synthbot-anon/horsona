@@ -1,7 +1,6 @@
 import asyncio
 from typing import AsyncGenerator, Optional, Protocol
 
-from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from horsona.autodiff.basic import (
@@ -24,8 +23,6 @@ from horsona.memory.database import (
 from horsona.memory.embeddings.database import EmbeddingDatabase
 from horsona.memory.embeddings.index import EmbeddingIndex
 from horsona.memory.embeddings.models import HuggingFaceBGEModel
-
-load_dotenv()
 
 
 class LiveState(BaseModel):

@@ -1,5 +1,8 @@
+import json
+
 import pytest
 from dotenv import load_dotenv
+from horsona.llm import engines_from_config
 from horsona.llm.anthropic_engine import AsyncAnthropicEngine
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.llm.cerebras_engine import AsyncCerebrasEngine
@@ -13,97 +16,47 @@ load_dotenv()
 
 
 @pytest.fixture(scope="session", autouse=False)
-def cerebras_llama31_70b() -> AsyncLLMEngine:
-    return AsyncCerebrasEngine(
-        model="llama3.1-70b",
-        rate_limits=[
-            # Interval, Max Calls, Max Tokens
-            (1, 3, 240000),
-            (60, 120, 240000),
-            (3600, 2600, 4000000),
-            (3600 * 24, 57600, 4000000),
-        ],
-    )
+def llm_engines() -> dict[str, AsyncLLMEngine]:
+    with open("llm_config.json") as f:
+        config = json.load(f)
+    return engines_from_config(config)
 
 
 @pytest.fixture(scope="session", autouse=False)
-def cerebras_llama31_8b() -> AsyncLLMEngine:
-    return AsyncCerebrasEngine(
-        model="llama3.1-8b",
-        rate_limits=[
-            # Interval, Max Calls, Max Tokens
-            (1, 3, 240000),
-            (60, 120, 240000),
-            (3600, 2600, 4000000),
-            (3600 * 24, 57600, 4000000),
-        ],
-    )
+def cerebras_llama31_70b(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["cerebras_llama31_70b"]
 
 
 @pytest.fixture(scope="session", autouse=False)
-def groq_llama31_70b() -> AsyncLLMEngine:
-    return AsyncGroqEngine(
-        model="llama3-70b-8192",
-        rate_limits=[
-            # Interval, Max Calls, Max Tokens
-            (1, 3, 6000),
-            (60, 30, 6000),
-            (3600 * 24, 14400, None),
-        ],
-    )
+def cerebras_llama31_8b(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["cerebras_llama31_8b"]
 
 
 @pytest.fixture(scope="session", autouse=False)
-def fireworks_llama31_70b() -> AsyncLLMEngine:
-    return AsyncFireworksEngine(
-        model="accounts/fireworks/models/llama-v3p1-70b-instruct",
-        rate_limits=[
-            # Interval (seconds), Max Calls, Max Tokens
-            (1, 3, None),
-            (60, 600, None),
-        ],
-    )
+def groq_llama31_70b(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["groq_llama31_70b"]
 
 
 @pytest.fixture(scope="session", autouse=False)
-def openai_gpt4o_mini() -> AsyncLLMEngine:
-    return AsyncOpenAIEngine(
-        model="gpt-4o-mini",
-        rate_limits=[
-            # Interval (seconds), Max Calls, Max Tokens
-            (60, 500, 200000),
-            (3600 * 24, 10000, None),
-        ],
-    )
+def fireworks_llama31_70b(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["fireworks_llama31_70b"]
 
 
 @pytest.fixture(scope="session", autouse=False)
-def anthropic_claude3_haiku() -> AsyncLLMEngine:
-    return AsyncAnthropicEngine(
-        model="claude-3-haiku-20240307",
-        rate_limits=[
-            # Interval (seconds), Max Calls, Max Tokens
-            (60, 50, 50000),
-            (3600 * 24, None, 5000000),
-        ],
-    )
+def openai_gpt4o_mini(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["openai_gpt4o_mini"]
 
 
 @pytest.fixture(scope="session", autouse=False)
-def together_llama31_8b() -> AsyncLLMEngine:
-    return AsyncTogetherEngine(model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo")
+def anthropic_claude3_haiku(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["anthropic_claude3_haiku"]
 
 
 @pytest.fixture(scope="session", autouse=False)
-def reasoning_llm(
-    cerebras_llama31_70b,
-    fireworks_llama31_70b,
-    openai_gpt4o_mini,
-    anthropic_claude3_haiku,
-) -> AsyncLLMEngine:
-    return create_multi_engine(
-        cerebras_llama31_70b,
-        fireworks_llama31_70b,
-        openai_gpt4o_mini,
-        anthropic_claude3_haiku,
-    )
+def together_llama31_8b(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["together_llama31_8b"]
+
+
+@pytest.fixture(scope="session", autouse=False)
+def reasoning_llm(llm_engines) -> AsyncLLMEngine:
+    return llm_engines["reasoning_llm"]

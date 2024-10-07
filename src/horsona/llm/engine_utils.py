@@ -18,22 +18,66 @@ def _convert_to_xml(obj, prefix, indent):
     Returns:
         str: The JSON string representation of the object.
     """
+    indent_str = "  " * indent
     if isinstance(obj, dict):
         result = []
         for key, value in obj.items():
-            value_str = _convert_to_xml(value, f"{prefix}.{key}", indent + 1)
-            result.append(f'\n{"  " * indent}<{key}>{value_str}</{key}>')
-        return "".join(result) + "\n"
+            if not isinstance(value, (dict, list)):
+                single_item = True
+            else:
+                single_item = len(value) == 1
+
+            if single_item and not isinstance(value, (dict, list)):
+                value_str = _convert_to_xml(value, f"{prefix}.{key}", 0)
+                closing_indent = ""
+                newline = ""
+            else:
+                value_str = _convert_to_xml(value, f"{prefix}.{key}", indent + 1)
+                closing_indent = indent_str
+                newline = "\n"
+
+            if value_str.strip():
+                result.append(
+                    (
+                        f"{indent_str}<{prefix}.{key}>{newline}"
+                        f"{value_str}{newline}"
+                        f"{closing_indent}</{prefix}.{key}>"
+                    )
+                )
+            else:
+                result.append((f"{indent_str}<{prefix}.{key}></{prefix}.{key}>"))
+
+        return "\n".join(result)
     elif isinstance(obj, list):
         result = []
         for i, value in enumerate(obj):
-            value_str = _convert_to_xml(value, prefix, indent + 1)
-            result.append(
-                f'\n{"  " * indent}<{prefix}.{i}>{value_str}{"  " * indent}</{prefix}.{i}>'
-            )
-        return "".join(result) + "\n"
+            if not isinstance(value, (dict, list)):
+                single_item = True
+            else:
+                single_item = len(value) == 1
+
+            if single_item and not isinstance(value, (dict, list)):
+                value_str = _convert_to_xml(value, prefix, 0)
+                closing_indent = ""
+                newline = ""
+            else:
+                value_str = _convert_to_xml(value, prefix, indent + 1)
+                closing_indent = indent_str
+                newline = "\n"
+
+            if value_str.strip():
+                result.append(
+                    (
+                        f"{indent_str}<{prefix}.{i}>{newline}"
+                        f"{value_str}{newline}"
+                        f"{closing_indent}</{prefix}.{i}>"
+                    )
+                )
+            else:
+                result.append((f"{indent_str}<{prefix}.{i}></{prefix}.{i}>"))
+        return "\n".join(result)
     else:
-        return f"{xml_escape(str(obj))}"
+        return indent_str + xml_escape(str(obj))
 
 
 async def compile_user_prompt(**kwargs):
@@ -51,7 +95,7 @@ async def compile_user_prompt(**kwargs):
     prompt_pieces = []
     for key, value in kwargs.items():
         value = _convert_to_xml(await _convert_to_dict(value), key, 1)
-        prompt_pieces.append(f"<{key}>{value}</{key}>")
+        prompt_pieces.append(f"<{key}>\n{value}\n</{key}>")
 
     return "\n\n".join(prompt_pieces)
 
@@ -145,7 +189,11 @@ def parse_block_response(block_type: str, content: str):
     Returns:
         str: The extracted content from the code block.
     """
-    start = content.rfind(f"```{block_type}") + 3 + len(block_type)
+    if f"```{block_type}" in content:
+        start = content.find(f"```{block_type}") + 3 + len(block_type)
+    elif "```" in content:
+        start = content.find("```") + 3
+
     end = content.find("```", start)
 
     return content[start:end].strip()
@@ -173,4 +221,4 @@ async def _convert_to_dict(obj):
     elif isinstance(obj, (int, float, str, bool)):
         return obj
     else:
-        return await obj.json()
+        return await _convert_to_dict(await obj.json())

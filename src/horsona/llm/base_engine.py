@@ -76,10 +76,13 @@ class TokenLimit:
 
 
 class RateLimits:
-    def __init__(self, limits: list[tuple[float, float, float]]):
+    def __init__(self, limits: list[dict]):
         self.call_limits: list[CallLimit] = []
         self.token_limits: list[TokenLimit] = []
-        for interval, calls, tokens in limits:
+        for rate_limit in limits:
+            interval = rate_limit["interval"]
+            calls = rate_limit.get("max_calls", None)
+            tokens = rate_limit.get("max_tokens", None)
             if calls != None:
                 self.call_limits.append(CallLimit(calls, interval))
             if tokens != None:

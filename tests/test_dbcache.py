@@ -1,5 +1,4 @@
 import pytest
-from dotenv import load_dotenv
 from horsona.autodiff.basic import step
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
@@ -14,8 +13,6 @@ from horsona.memory.database import (
 from horsona.memory.embeddings.database import EmbeddingDatabase
 from horsona.memory.embeddings.index import EmbeddingIndex
 from horsona.memory.embeddings.models import HuggingFaceBGEModel
-
-load_dotenv()
 
 SAMPLE_DATA = {
     "What is James shown?": "James is shown the Earth pony creation screen",

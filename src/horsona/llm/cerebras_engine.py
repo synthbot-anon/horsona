@@ -23,4 +23,6 @@ class AsyncCerebrasEngine(AsyncOAIEngine):
         self.client = AsyncCerebras()
 
     async def create(self, **kwargs):
-        return await self.client.chat.completions.create(model=self.model, **kwargs)
+        return await self.client.chat.completions.create(
+            model=self.model, timeout=2, **kwargs
+        )

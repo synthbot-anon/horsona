@@ -48,6 +48,9 @@ class DatabaseCacheContext(HorseVariable):
     def items(self):
         return self.data.items()
 
+    def popitem(self, last=True):
+        return self.data.popitem(last=last)
+
 
 class DatabaseCache(Cache[DatabaseCacheContext, Value[str]]):
     context: DatabaseCacheContext

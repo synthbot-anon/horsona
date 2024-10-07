@@ -28,19 +28,39 @@ CEREBRAS_API_KEY="csk-xxxxxxxxxxxxxxxxxxxxxxxxx"
 FIREWORKS_API_KEY="fw_xxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-# Running tests
-Horsona is a library, not a chatbot application. So there's not a "main" method, and everything is run through tests. Actual chatbots will go into separate repos.
+Adjust the list of LLMs based on what you can use:
 ```bash
-# To run tests/test_llm.py...
-
-# Edit tests/test_llm.py to use your preferred models. (I'll add in a better way to do this later.)
-
-# Then run the test. (Add -s to the end to show print statements.
-poetry run pytest tests/test_llm.py
-
-# Most tests are stochastic since they use external APIs. 
+cp llm_config.json.example llm_config.json
+# This file contains a sample list of LLMs.
+# The names can be arbitrary, but it must define a "reasoning_llm".
+vim llm_config.json
 ```
 
+# Running samples
+Horsona is a library, not a chatbot application. So there's not a "main" method, and everything is run through tests and samples.
+The samples are simple demo applications you can configure with, e.g., custom chatbots. Copy and edit the relevant config files.
+For example:
+
+```bash
+cp samples/simple_chatbot/config.json.example config.json
+# Edit the config file
+vim config.json
+```
+
+Then run the sample app.
+
+```bash
+poetry run python samples/simple_chatbot/simple_chatbot.py
+```
+
+
+# Running tests
+Most tests are stochastic since LLMs tend to be stochastic, so they may sometimes fail.
+You can run tests using `pytest`. For example:
+```bash
+# To run tests/test_llm.py...
+poetry run pytest tests/test_llm.py
+```
 
 # Contributing
 1. Check the [open issues](https://github.com/synthbot-anon/horsona/issues) for something you can work on. If you're new, check out [good first issues](https://github.com/synthbot-anon/horsona/labels/good%20first%20issue). If you want to work on something that's not listed, post in the thread so we can figure out how to approach it.
@@ -63,9 +83,13 @@ This target feature list is incomplete:
 - Support for RPG functionality, like HP, XP, and dice rolls based on a rule book
 - Transparent adaptation of video generation prompts to the API & model in use
 - Making & rolling back high level edits to character cards
-- Support continuing prompts, like non-chat GPTs
-- Support jailbreaks
-- Support the creation of fine-tuning datasets
+- Continue generating the input, as opposed to responding to it (like non-chat GPTs)
+- Jailbreak support
+- Fine-tuning dataset creation
+- Speech generation and voice morphing the results
+- Streaming outputs
+- Integration with game engines
+- Actions (function call) outputs
 
 If you think of other features you want in a general-purpose chatbot library, let me know in the thread.
 
