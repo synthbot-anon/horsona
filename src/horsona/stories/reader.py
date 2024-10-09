@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncGenerator, Optional, Protocol
+from typing import AsyncGenerator
 
 from pydantic import BaseModel
 
@@ -13,7 +13,7 @@ from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.caches.cache import Cache
 from horsona.memory.caches.dbcache import DatabaseCache, DatabaseCacheContext
-from horsona.memory.caches.listcache import ListCache, ListCacheContext
+from horsona.memory.caches.listcache import ListCache
 from horsona.memory.caches.valuecache import ValueCache
 from horsona.memory.database import (
     Database,
@@ -21,8 +21,8 @@ from horsona.memory.database import (
     DatabaseTextGradient,
 )
 from horsona.memory.embeddings.database import EmbeddingDatabase
-from horsona.memory.embeddings.index import EmbeddingIndex
-from horsona.memory.embeddings.models import HuggingFaceBGEModel
+from horsona.memory.embeddings.hnsw_index import HnswEmbeddingIndex
+from horsona.memory.embeddings.models import OllamaEmbeddingModel
 
 
 class LiveState(BaseModel):
@@ -75,9 +75,8 @@ class StoryReaderModule(HorseModule):
         if setting_db is None:
             setting_db = setting_db or EmbeddingDatabase(
                 self.llm,
-                EmbeddingIndex(
-                    "Current state of the story setting",
-                    HuggingFaceBGEModel(model="BAAI/bge-large-en-v1.5"),
+                HnswEmbeddingIndex(
+                    OllamaEmbeddingModel(model="imcurie/bge-large-en-v1.5"),
                 ),
                 requires_grad=True,
             )

@@ -11,8 +11,9 @@ from horsona.memory.database import (
     DatabaseUpdate,
 )
 from horsona.memory.embeddings.database import EmbeddingDatabase
+from horsona.memory.embeddings.hnsw_index import HnswEmbeddingIndex
 from horsona.memory.embeddings.index import EmbeddingIndex
-from horsona.memory.embeddings.models import HuggingFaceBGEModel
+from horsona.memory.embeddings.models import OllamaEmbeddingModel
 
 SAMPLE_DATA = {
     "What is James shown?": "James is shown the Earth pony creation screen",
@@ -33,12 +34,12 @@ def llm() -> AsyncLLMEngine:
 
 @pytest.fixture(scope="module")
 def embedding_model() -> EmbeddingIndex:
-    return HuggingFaceBGEModel(model="BAAI/bge-large-en-v1.5")
+    return OllamaEmbeddingModel(model="imcurie/bge-large-en-v1.5")
 
 
 @pytest.mark.asyncio
 async def test_update_database(llm, embedding_model):
-    index = EmbeddingIndex("State of the story setting", embedding_model)
+    index = HnswEmbeddingIndex(embedding_model)
     database = EmbeddingDatabase(llm, index, requires_grad=True)
     await database.insert(SAMPLE_DATA)
 

@@ -10,7 +10,6 @@ from typing import (
     Callable,
     Collection,
     Generator,
-    Optional,
     ParamSpec,
     TypeVar,
     Union,

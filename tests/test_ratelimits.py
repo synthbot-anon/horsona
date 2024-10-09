@@ -1,15 +1,15 @@
 import time
 
 import pytest
-from horsona.llm.base_engine import AsyncLLMEngine, RateLimits
+from horsona.llm.base_engine import RateLimits
 
 
 @pytest.mark.asyncio
 async def test_call_limit():
     limits = RateLimits(
         [
-            (0.2, 2, 10),
-            (0.4, 3, 10),
+            {"interval": 0.2, "max_calls": 2, "max_tokens": 10},
+            {"interval": 0.4, "max_calls": 3, "max_tokens": 10},
         ]
     )
 
@@ -31,8 +31,8 @@ async def test_call_limit():
 async def test_token_limit():
     limits = RateLimits(
         [
-            (0.1, 100, 5),
-            (0.3, 100, 9),
+            {"interval": 0.1, "max_calls": 100, "max_tokens": 5},
+            {"interval": 0.3, "max_calls": 100, "max_tokens": 9},
         ]
     )
 

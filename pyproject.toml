@@ -15,19 +15,17 @@ groq = "^0.9.0"
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"
 together = "^1.2.7"
-transformers = "^4.44.2"
 anthropic = "^0.34.2"
 openai = "^1.45.1"
 aiofiles = "^24.1.0"
+ollama = "^0.3.3"
+chroma-hnswlib = "^0.7.6"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"
 pytest-asyncio = "^0.24.0"
 
 
-
-[tool.poetry.group.compute-cpu.dependencies]
-torch = {version = "^2.4.0+cpu", source = "pytorch-cpu"}
 
 [[tool.poetry.source]]
 name = "pytorch-cpu"

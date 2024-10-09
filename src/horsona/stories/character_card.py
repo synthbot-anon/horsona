@@ -7,7 +7,6 @@ from horsona.autodiff.basic import GradContext, HorseVariable, horsefunction
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.caches.cache import Cache
-from horsona.stories.reader import LiveState
 
 
 class CharacterInfo(BaseModel):

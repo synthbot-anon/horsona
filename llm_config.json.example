@@ -1,0 +1,85 @@
+[
+  {
+    "cerebras_llama31_70b": {
+      "type": "AsyncCerebrasEngine",
+      "model": "llama3.1-70b",
+      "rate_limits": [
+        {"interval": 1, "max_calls": 3, "max_tokens": 240000},
+        {"interval": 60, "max_calls": 120, "max_tokens": 240000},
+        {"interval": 3600, "max_calls": 2600, "max_tokens": 4000000},
+        {"interval": 86400, "max_calls": 57600, "max_tokens": 4000000}
+      ]
+    }
+  },
+  {
+    "cerebras_llama31_8b": {
+      "type": "AsyncCerebrasEngine",
+      "model": "llama3.1-8b",
+      "rate_limits": [
+        {"interval": 1, "max_calls": 3, "max_tokens": 240000},
+        {"interval": 60, "max_calls": 120, "max_tokens": 240000},
+        {"interval": 3600, "max_calls": 2600, "max_tokens": 4000000},
+        {"interval": 86400, "max_calls": 57600, "max_tokens": 4000000}
+      ]
+    }
+  },
+  {
+    "groq_llama31_70b": {
+      "type": "AsyncGroqEngine",
+      "model": "llama3-70b-8192",
+      "rate_limits": [
+        {"interval": 1, "max_calls": 3, "max_tokens": 6000},
+        {"interval": 60, "max_calls": 30, "max_tokens": 6000},
+        {"interval": 86400, "max_calls": 14400, "max_tokens": null}
+      ]
+    }
+  },
+  {
+    "fireworks_llama31_70b": {
+      "type": "AsyncFireworksEngine",
+      "model": "accounts/fireworks/models/llama-v3p1-70b-instruct",
+      "rate_limits": [
+        {"interval": 1, "max_calls": 3, "max_tokens": null},
+        {"interval": 60, "max_calls": 600, "max_tokens": null}
+      ]
+    }
+  },
+  {
+    "openai_gpt4o_mini": {
+      "type": "AsyncOpenAIEngine",
+      "model": "gpt-4o-mini",
+      "rate_limits": [
+        {"interval": 60, "max_calls": 500, "max_tokens": 200000},
+        {"interval": 86400, "max_calls": 10000, "max_tokens": null}
+      ]
+    }
+  },
+  {
+    "anthropic_claude3_haiku": {
+      "type": "AsyncAnthropicEngine",
+      "model": "claude-3-haiku-20240307",
+      "rate_limits": [
+        {"interval": 60, "max_calls": 50, "max_tokens": 50000},
+        {"interval": 86400, "max_calls": null, "max_tokens": 5000000}
+      ]
+    }
+  },
+  {
+    "together_llama31_8b": {
+      "type": "AsyncTogetherEngine",
+      "model": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      "rate_limits": []
+    }
+  },
+  {
+    "reasoning_llm": {
+      "type": "MultiEngine",
+      "engines": [
+        "cerebras_llama31_70b",
+        "fireworks_llama31_70b",
+        "openai_gpt4o_mini",
+        "anthropic_claude3_haiku"
+      ]
+    }
+  }
+]
