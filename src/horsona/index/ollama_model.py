@@ -4,12 +4,13 @@ from horsona.index.embedding_model import EmbeddingModel
 
 
 class OllamaEmbeddingModel(EmbeddingModel):
-    def __init__(self, model):
+    def __init__(self, model, url=None):
         super().__init__()
         self.model = model
+        self.url = url
 
     async def get_data_embeddings(self, sentences):
-        client = AsyncClient()
+        client = AsyncClient(host=self.url)
         response = await client.embed(model=self.model, input=sentences)
         return response["embeddings"]
 

@@ -21,4 +21,6 @@ def indices_from_config(config: dict) -> dict[str, BaseIndex]:
 
 def embedding_model_from_config(config: dict):
     if config["type"] == "OllamaEmbeddingModel":
-        return OllamaEmbeddingModel(config["model"])
+        model = config["model"]
+        url = config.get("url")
+        return OllamaEmbeddingModel(model, url=url)

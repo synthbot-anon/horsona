@@ -1,1 +1,1 @@
-docker run --rm -it -v "%cd%":/host synthbot/simple_chatbot
+docker run --rm -it --network host -v "%cd%":/host synthbot/simple_chatbot

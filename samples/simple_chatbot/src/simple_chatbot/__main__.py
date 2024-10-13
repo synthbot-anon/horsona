@@ -4,7 +4,6 @@ import sys
 
 import aiofiles
 from dotenv import load_dotenv
-
 from horsona.autodiff.basic import step
 from horsona.autodiff.variables import Value
 from horsona.database.embedding_database import EmbeddingDatabase
@@ -13,7 +12,7 @@ from horsona.llm import engines_from_config
 from horsona.stories.reader import ReaderModule
 
 # Load API keys from .env file
-load_dotenv('.env')
+load_dotenv(".env")
 
 # Load the reasoning_llm engine
 with open("llm_config.json") as f:
