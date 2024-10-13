@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "simple_chatbot"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+  "Synthbot Anon <synthbot.anon@gmail.com>"
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+horsona = { git = "https://github.com/synthbot-anon/horsona", rev = "22e0e75" }
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+

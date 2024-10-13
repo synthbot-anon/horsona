@@ -4,13 +4,16 @@ import sys
 
 import aiofiles
 from dotenv import load_dotenv
+
 from horsona.autodiff.basic import step
 from horsona.autodiff.variables import Value
+from horsona.database.embedding_database import EmbeddingDatabase
+from horsona.index import indices_from_config
 from horsona.llm import engines_from_config
-from horsona.stories.reader import StoryReaderModule
+from horsona.stories.reader import ReaderModule
 
 # Load API keys from .env file
-load_dotenv()
+load_dotenv('.env')
 
 # Load the reasoning_llm engine
 with open("llm_config.json") as f:
@@ -18,8 +21,14 @@ with open("llm_config.json") as f:
 engines = engines_from_config(config)
 reasoning_llm = engines["reasoning_llm"]
 
+# Load the embedding index info
+with open("index_config.json") as f:
+    config = json.load(f)
+indices = indices_from_config(config)
+query_index = indices["query_index"]
+
 # Load the chatbot config
-with open("config.json") as f:
+with open("persona_config.json") as f:
     character_info = json.load(f)
 
 
@@ -33,7 +42,13 @@ async def async_input(prompt: str) -> str:
 
 
 async def main():
-    reader = StoryReaderModule(reasoning_llm)
+    setting_db = EmbeddingDatabase(
+        reasoning_llm,
+        query_index,
+        requires_grad=True,
+    )
+
+    reader = ReaderModule(reasoning_llm, setting_db)
     context = ""
 
     user_msg = await async_input("User: ")
