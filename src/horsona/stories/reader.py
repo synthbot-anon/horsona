@@ -8,21 +8,20 @@ from horsona.autodiff.basic import (
     HorseModule,
     HorseVariable,
     horsefunction,
+    load_state_dict,
+    state_dict,
 )
 from horsona.autodiff.variables import Value
-from horsona.llm.base_engine import AsyncLLMEngine
-from horsona.memory.caches.cache import Cache
-from horsona.memory.caches.dbcache import DatabaseCache, DatabaseCacheContext
-from horsona.memory.caches.listcache import ListCache
-from horsona.memory.caches.valuecache import ValueCache
-from horsona.memory.database import (
+from horsona.cache.base_cache import BaseCache
+from horsona.cache.db_cache import DatabaseCache, DatabaseCacheContext
+from horsona.cache.list_cache import ListCache
+from horsona.cache.value_cache import ValueCache
+from horsona.database.base_database import (
     Database,
     DatabaseInsertGradient,
     DatabaseTextGradient,
 )
-from horsona.memory.embeddings.database import EmbeddingDatabase
-from horsona.memory.embeddings.hnsw_index import HnswEmbeddingIndex
-from horsona.memory.embeddings.models import OllamaEmbeddingModel
+from horsona.llm.base_engine import AsyncLLMEngine
 
 
 class LiveState(BaseModel):
@@ -60,48 +59,44 @@ class ReadContextLoss(HorseVariable):
         self.corrections = corrections
 
 
-class StoryReaderModule(HorseModule):
+class ReaderModule(HorseModule):
     def __init__(
         self,
         llm: AsyncLLMEngine,
         setting_db: Database = None,
-        buffer_cache: Cache = None,
-        database_cache: Cache = None,
-        state_cache: ValueCache = None,
+        buffer_cache: BaseCache = None,
+        database_cache: BaseCache = None,
+        live_cache: ValueCache = None,
+        **kwargs,
     ):
-        super().__init__()
-        self.llm = llm
-
-        if setting_db is None:
-            setting_db = setting_db or EmbeddingDatabase(
-                self.llm,
-                HnswEmbeddingIndex(
-                    OllamaEmbeddingModel(model="imcurie/bge-large-en-v1.5"),
-                ),
-                requires_grad=True,
+        if setting_db is None and database_cache is None:
+            raise ValueError(
+                "At least one of setting_db or database_cache must be provided"
             )
-        self.setting_db = setting_db
+
+        super().__init__(**kwargs)
+        self.llm = llm
 
         if buffer_cache is None:
             buffer_cache = ListCache(5)
-        self.buffer_memory = buffer_cache
+        self.buffer_cache = buffer_cache
 
         if database_cache is None:
             database_cache = DatabaseCache(llm, setting_db, 10)
-        self.database_memory = database_cache
+        self.database_cache = database_cache
 
-        if state_cache is None:
-            state_cache = ValueCache(Value(LiveState()))
-        self.state_cache: ValueCache = state_cache
+        if live_cache is None:
+            live_cache = ValueCache(Value(LiveState()))
+        self.live_cache: ValueCache = live_cache
 
     async def read(self, paragraph: Value) -> tuple[ReadContext, ReadContextLoss]:
         class UpdatedState(BaseModel):
-            new_state: self.state_cache.context.VALUE_TYPE
+            new_state: self.live_cache.context.VALUE_TYPE
             memory_corrections: list[str]
 
-        buffer_context = await self.buffer_memory.sync()
-        database_context = await self.database_memory.sync()
-        state_context = await self.state_cache.sync()
+        buffer_context = await self.buffer_cache.sync()
+        database_context = await self.database_cache.sync()
+        state_context = await self.live_cache.sync()
 
         class Search(BaseModel):
             queries: list[str]
@@ -121,7 +116,7 @@ class StoryReaderModule(HorseModule):
         )
 
         for q in search.queries:
-            database_context = await self.database_memory.load(
+            database_context = await self.database_cache.load(
                 Value(
                     q,
                     predecessors=[
@@ -191,8 +186,8 @@ class StoryReaderModule(HorseModule):
         )
 
         new_buffer_context, state_context = await asyncio.gather(
-            self.buffer_memory.load(paragraph),
-            self.state_cache.load(new_state_value),
+            self.buffer_cache.load(paragraph),
+            self.live_cache.load(new_state_value),
         )
 
         read_context = ReadContext(

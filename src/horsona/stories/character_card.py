@@ -5,8 +5,8 @@ from pydantic import BaseModel
 
 from horsona.autodiff.basic import GradContext, HorseVariable, horsefunction
 from horsona.autodiff.variables import Value
+from horsona.cache.base_cache import BaseCache
 from horsona.llm.base_engine import AsyncLLMEngine
-from horsona.memory.caches.cache import Cache
 
 
 class CharacterInfo(BaseModel):
@@ -17,7 +17,7 @@ class CharacterInfo(BaseModel):
 
 
 class CharacterCardContext(
-    Cache[Value[dict[str, CharacterInfo]], Value[str | list[str]]]
+    BaseCache[Value[dict[str, CharacterInfo]], Value[str | list[str]]]
 ):
     def __init__(self, llm: AsyncLLMEngine):
         super().__init__(Value({}))

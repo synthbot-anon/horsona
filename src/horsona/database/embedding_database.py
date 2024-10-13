@@ -1,12 +1,16 @@
-from horsona.memory.database import Database
-from horsona.memory.embeddings.index import EmbeddingIndex
+from horsona.autodiff.basic import load_state_dict, state_dict
+from horsona.database.base_database import Database
+from horsona.index.base_index import BaseIndex
 
 
 class EmbeddingDatabase(Database):
-    def __init__(self, llm, index: EmbeddingIndex, **kwargs):
+    def __init__(self, llm, index: BaseIndex, data=None, **kwargs):
         super().__init__(llm, **kwargs)
-        self.data = {}
         self.index = index
+        if data is not None:
+            self.data = data
+        else:
+            self.data = {}
 
     async def insert(self, data):
         await self.index.extend(list(data.keys()))

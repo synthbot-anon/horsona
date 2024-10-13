@@ -1,16 +1,6 @@
-from abc import ABC, abstractmethod
-
 from ollama import AsyncClient
 
-
-class EmbeddingModel(ABC):
-    @abstractmethod
-    async def get_data_embeddings(self, sentences):
-        pass
-
-    @abstractmethod
-    async def get_query_embeddings(self, sentences):
-        pass
+from horsona.index.embedding_model import EmbeddingModel
 
 
 class OllamaEmbeddingModel(EmbeddingModel):

@@ -39,33 +39,62 @@ class DatabaseInsertGradient(HorseGradient):
 
 
 class Database(HorseVariable, ABC):
+    """
+    An class representing a database.
+
+    This class provides an interface for basic database operations
+    and gradient application. It uses an AsyncLLMEngine for processing gradients.
+
+    Attributes:
+        llm (AsyncLLMEngine): An asynchronous LLM engine used for processing gradients.
+
+    Parameters:
+        llm (AsyncLLMEngine): The LLM engine to be used for processing updates.
+        **kwargs: Additional keyword arguments to be passed to the parent HorseVariable class (required_grad, name).
+
+    Gradients:
+        This class supports three types of gradients:
+        1. DatabaseTextGradient: For context-based text updates.
+        2. DatabaseOpGradient: For specific update, delete, or no-change operations.
+        3. DatabaseInsertGradient: For inserting new rows into the database.
+
+    Example:
+        >>> class MyDatabase(Database):
+        ...     # Implement abstract methods
+        ...     pass
+        >>> llm_engine = AsyncLLMEngine()
+        >>> db = MyDatabase(llm_engine)
+        >>> await db.insert({"key": "old_value"})
+        >>> await db.apply_gradients([DatabaseTextGradient(context={"key": "old_value"}, change="new_value")])
+    """
+
     def __init__(self, llm: AsyncLLMEngine, **kwargs):
         super().__init__(**kwargs)
         self.llm = llm
 
     @abstractmethod
     async def insert(self, data):
-        pass
+        ...
 
     @abstractmethod
     async def query(self, query, **kwargs) -> dict:
-        pass
+        ...
 
     @abstractmethod
     async def delete(self, index):
-        pass
+        ...
 
     @abstractmethod
     async def contains(self, key):
-        pass
+        ...
 
     @abstractmethod
     async def update(self, key, value):
-        pass
+        ...
 
     @abstractmethod
     async def get(self, key):
-        pass
+        ...
 
     async def apply_gradients(self, gradients: list[HorseGradient]):
         if not gradients:

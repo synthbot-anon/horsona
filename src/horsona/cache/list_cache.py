@@ -1,14 +1,26 @@
 from typing import AsyncGenerator, Generic, TypeVar
 
-from horsona.autodiff.basic import GradContext, HorseVariable, horsefunction
+from horsona.autodiff.basic import (
+    GradContext,
+    HorseVariable,
+    horsefunction,
+    load_state_dict,
+    state_dict,
+)
 from horsona.autodiff.variables import HorseType, Value
-from horsona.memory.caches.cache import Cache
+from horsona.cache.base_cache import BaseCache
 
 
 class ListCacheContext(HorseVariable):
-    def __init__(self, **kwargs):
+    def __init__(self, data=None, **kwargs):
+        if "requires_grad" in kwargs:
+            assert not kwargs["requires_grad"]
+
         super().__init__(**kwargs)
-        self.data = []
+        if data is not None:
+            self.data = data
+        else:
+            self.data = []
 
     async def json(self):
         return self.data
@@ -41,11 +53,17 @@ class ListCacheContext(HorseVariable):
 T = TypeVar("T", bound=HorseType)
 
 
-class ListCache(Cache[ListCacheContext, Value[T]], Generic[T]):
+class ListCache(BaseCache[ListCacheContext, Value[T]], Generic[T]):
     context: ListCacheContext
 
-    def __init__(self, size):
-        super().__init__(ListCacheContext())
+    def __init__(self, size, context=None, name=None, **kwargs):
+        if context == None:
+            if name is not None:
+                context = ListCacheContext(name=f"{name}Context")
+            else:
+                context = ListCacheContext()
+
+        super().__init__(context, name=name, **kwargs)
         self.size = size
 
     @horsefunction

@@ -3,15 +3,7 @@ from horsona.autodiff.basic import step
 from horsona.autodiff.functions import extract_object
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Parameter
-from horsona.llm.cerebras_engine import AsyncCerebrasEngine
 from pydantic import BaseModel
-
-
-@pytest.fixture(scope="module")
-def reasoning_llm():
-    return AsyncCerebrasEngine(
-        model="llama3.1-70b",
-    )
 
 
 @pytest.mark.asyncio

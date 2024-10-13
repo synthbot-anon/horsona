@@ -1,22 +1,34 @@
 from collections import OrderedDict
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Type
 
-from horsona.autodiff.basic import GradContext, HorseVariable, horsefunction
+from horsona.autodiff.basic import (
+    GradContext,
+    HorseVariable,
+    horsefunction,
+    load_state_dict,
+    state_dict,
+)
 from horsona.autodiff.variables import Value
-from horsona.llm.base_engine import AsyncLLMEngine
-from horsona.memory.caches.cache import Cache
-from horsona.memory.database import (
+from horsona.cache.base_cache import BaseCache
+from horsona.database.base_database import (
     Database,
     DatabaseInsertGradient,
     DatabaseOpGradient,
     DatabaseTextGradient,
 )
+from horsona.llm.base_engine import AsyncLLMEngine
 
 
 class DatabaseCacheContext(HorseVariable):
-    def __init__(self, **kwargs):
+    def __init__(self, data=None, **kwargs):
+        if "requires_grad" in kwargs:
+            assert not kwargs["requires_grad"]
+
         super().__init__(**kwargs)
-        self.data = OrderedDict()
+        if data is not None:
+            self.data = OrderedDict(data)
+        else:
+            self.data = OrderedDict()
 
     async def json(self):
         return self.data
@@ -51,8 +63,11 @@ class DatabaseCacheContext(HorseVariable):
     def popitem(self, last=True):
         return self.data.popitem(last=last)
 
+    def state_dict(self):
+        return super().state_dict(data=list(self.data.items()))
 
-class DatabaseCache(Cache[DatabaseCacheContext, Value[str]]):
+
+class DatabaseCache(BaseCache[DatabaseCacheContext, Value[str]]):
     context: DatabaseCacheContext
 
     def __init__(
@@ -60,9 +75,17 @@ class DatabaseCache(Cache[DatabaseCacheContext, Value[str]]):
         llm: AsyncLLMEngine,
         database: Database,
         cache_size: int,
-        **db_query_args,
+        context=None,
+        name: str = None,
+        db_query_args={},
+        **kwargs,
     ):
-        super().__init__(DatabaseCacheContext())
+        if context is None:
+            if name is not None:
+                context = DatabaseCacheContext(name=f"{name}Context")
+            else:
+                context = DatabaseCacheContext()
+        super().__init__(context, name=name, **kwargs)
         self.llm = llm
         self.database: Database = database
         self.cache_size = cache_size

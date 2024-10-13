@@ -2,14 +2,14 @@ from typing import TypeVar
 
 from horsona.autodiff.basic import horsefunction
 from horsona.autodiff.variables import HorseType, Value
-from horsona.memory.caches.cache import Cache
+from horsona.cache.base_cache import BaseCache
 
 T = TypeVar("T", bound=HorseType)
 
 
-class ValueCache(Cache[Value[T], Value[T]]):
-    def __init__(self, initial_value: Value[T]):
-        super().__init__(initial_value)
+class ValueCache(BaseCache[Value[T], Value[T]]):
+    def __init__(self, context: Value[T], **kwargs):
+        super().__init__(context, **kwargs)
 
     @horsefunction
     async def load(self, value: Value[T]):

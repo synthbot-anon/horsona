@@ -1,9 +1,10 @@
 import pytest
 from horsona.autodiff.basic import step
 from horsona.autodiff.variables import Value
-from horsona.llm.base_engine import AsyncLLMEngine
+from horsona.database.embedding_database import EmbeddingDatabase
+from horsona.index.hnsw_index import HnswEmbeddingIndex
 from horsona.stories.character_card import CharacterCardContext
-from horsona.stories.reader import StoryReaderModule
+from horsona.stories.reader import ReaderModule
 
 STORY = """James looked skeptically at his friend David as he sat down at computer #12.
 David had won the Hasbro raffle for one of fifteen all-expenses-paid trips for two to Pawtucket, Rhode Island to play the first alpha build of the official My Little Pony MMO: Equestria Online. Hasbro had claimed that a game that revolved so heavily around friendship needed actual friends to test properly.
@@ -12,9 +13,14 @@ David scoffed. “I know you. What was that Korean MMO with the little girls tha
 
 
 @pytest.mark.asyncio
-async def test_reader(reasoning_llm):
+async def test_reader(reasoning_llm, query_index: HnswEmbeddingIndex):
     story_paragraphs = STORY.split("\n")
-    reader = StoryReaderModule(reasoning_llm)
+    setting_db = EmbeddingDatabase(
+        reasoning_llm,
+        query_index,
+        requires_grad=True,
+    )
+    reader = ReaderModule(reasoning_llm, setting_db)
 
     for p in story_paragraphs:
         # Figure out what's new in the paragraph
@@ -24,24 +30,46 @@ async def test_reader(reasoning_llm):
         gradients = await read_context_loss.backward(reader.parameters())
         await step(gradients)
 
-    assert len(reader.buffer_memory.context) > 0
-    assert len(reader.database_memory.context) > 0
-    assert reader.state_cache.context.value.last_speaker == "David"
-    assert set(reader.state_cache.context.value.characters_in_scene) == {
+    reader_state = reader.state_dict()
+    reader = ReaderModule.load_state_dict(
+        reader_state,
+        args={
+            "llm": reasoning_llm,
+            "database_cache": {
+                "llm": reasoning_llm,
+                "database": {
+                    "llm": reasoning_llm,
+                    "index": {
+                        "model": query_index.model,
+                    },
+                },
+            },
+        },
+    )
+
+    assert len(reader.buffer_cache.context) > 0
+    assert len(reader.database_cache.context) > 0
+    assert reader.live_cache.context.value.last_speaker == "David"
+    assert set(reader.live_cache.context.value.characters_in_scene) == {
         "James",
         "David",
     }
+
     assert (
-        "computer #12" in reader.state_cache.context.value.current_location.lower()
-        or "pawtucket" in reader.state_cache.context.value.current_location.lower()
+        "computer #12" in reader.live_cache.context.value.current_location.lower()
+        or "pawtucket" in reader.live_cache.context.value.current_location.lower()
     )
 
 
 @pytest.mark.asyncio
-async def test_generate_character_card(reasoning_llm: AsyncLLMEngine):
+async def test_generate_character_card(reasoning_llm, query_index):
     story_paragraphs = STORY.split("\n")
-
-    reader = StoryReaderModule(reasoning_llm)
+    setting_db = EmbeddingDatabase(
+        reasoning_llm,
+        query_index,
+        requires_grad=True,
+    )
+    reader = ReaderModule(reasoning_llm, setting_db)
     characters = CharacterCardContext(reasoning_llm)
 
     # When reading, have it maintain details character info

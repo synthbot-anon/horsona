@@ -2,18 +2,13 @@ import pytest
 from horsona.autodiff.basic import step
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
-from horsona.llm.base_engine import AsyncLLMEngine
-from horsona.llm.cerebras_engine import AsyncCerebrasEngine
-from horsona.memory.caches.dbcache import DatabaseCache
-from horsona.memory.database import (
+from horsona.cache.db_cache import DatabaseCache
+from horsona.database.base_database import (
     DatabaseOpGradient,
     DatabaseTextGradient,
     DatabaseUpdate,
 )
-from horsona.memory.embeddings.database import EmbeddingDatabase
-from horsona.memory.embeddings.hnsw_index import HnswEmbeddingIndex
-from horsona.memory.embeddings.index import EmbeddingIndex
-from horsona.memory.embeddings.models import OllamaEmbeddingModel
+from horsona.database.embedding_database import EmbeddingDatabase
 
 SAMPLE_DATA = {
     "What is James shown?": "James is shown the Earth pony creation screen",
@@ -27,23 +22,13 @@ SAMPLE_DATA = {
 }
 
 
-@pytest.fixture(scope="module")
-def llm() -> AsyncLLMEngine:
-    return AsyncCerebrasEngine(model="llama3.1-70b")
-
-
-@pytest.fixture(scope="module")
-def embedding_model() -> EmbeddingIndex:
-    return OllamaEmbeddingModel(model="imcurie/bge-large-en-v1.5")
-
-
 @pytest.mark.asyncio
-async def test_update_database(llm, embedding_model):
-    index = HnswEmbeddingIndex(embedding_model)
-    database = EmbeddingDatabase(llm, index, requires_grad=True)
+async def test_update_database(reasoning_llm, query_index):
+    database = EmbeddingDatabase(reasoning_llm, query_index, requires_grad=True)
+    print(database)
     await database.insert(SAMPLE_DATA)
 
-    cache = DatabaseCache(llm, database, 5)
+    cache = DatabaseCache(reasoning_llm, database, 5, name="test_db")
 
     context = await cache.load(Value("Who is Honeycrisp?"))
     loss = await apply_loss(

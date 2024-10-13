@@ -1,0 +1,24 @@
+from horsona.index.base_index import BaseIndex
+from horsona.index.hnsw_index import HnswEmbeddingIndex
+from horsona.index.ollama_model import OllamaEmbeddingModel
+
+
+def indices_from_config(config: dict) -> dict[str, BaseIndex]:
+    indices = {}
+
+    for item in config:
+        for name, params in item.items():
+            index_type = params["type"]
+
+            if index_type == "HnswEmbeddingIndex":
+                embedding = embedding_model_from_config(params["embedding"])
+                indices[name] = HnswEmbeddingIndex(model=embedding)
+            else:
+                raise ValueError(f"Unknown index type: {index_type}")
+
+    return indices
+
+
+def embedding_model_from_config(config: dict):
+    if config["type"] == "OllamaEmbeddingModel":
+        return OllamaEmbeddingModel(config["model"])
