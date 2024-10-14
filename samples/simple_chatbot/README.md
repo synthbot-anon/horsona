@@ -9,7 +9,7 @@ This application demos the following functionality:
 1. Run Ollama.
 
 ```bash
-docker run -d --rm -e OLLAMA_HOST=0.0.0.0:11434 -v "$HOME/ollama:/root/.ollama" -p 11434:11434 --name ollama ollama/ollama
+docker run -d --rm -e OLLAMA_HOST=0.0.0.0:11434 -v "ollama:/root/.ollama" -p 11434:11434 --name ollama ollama/ollama
 
 # You can stop Ollama with the following command:
 #   docker container kill ollama # preferred
@@ -20,11 +20,16 @@ docker run -d --rm -e OLLAMA_HOST=0.0.0.0:11434 -v "$HOME/ollama:/root/.ollama" 
 
 ```powershell
 docker exec ollama ollama pull imcurie/bge-large-en-v1.5
+
+# You can remove the model with the following command:
+#   docker exec ollama ollama rm imcurie/bge-large-en-v1.5 # remove single model)
+#   docker volume rm ollama # remove all ollama data
+
 ```
 3. Clone the repo and navigate to the `simple_chatbot/bin/windows` folder.
 
 ```powershell
-git clone git@github.com:synthbot-anon/horsona.git
+git clone https://github.com/synthbot-anon/horsona.git
 cd horsona/samples/simple_chatbot/bin/linux
 ```
 
@@ -37,7 +42,7 @@ cd horsona/samples/simple_chatbot/bin/linux
 1. Run Ollama.
 
 ```powershell
-docker run -d --rm -e OLLAMA_HOST=0.0.0.0:11434 -v "$env:USERPROFILE/ollama:/root/.ollama" -p 11434:11434  --name ollama ollama/ollama
+docker run -d --rm -e OLLAMA_HOST=0.0.0.0:11434 -v "ollama:/root/.ollama" -p 11434:11434  --name ollama ollama/ollama
 
 # You can stop Ollama with the following command:
 #   docker container kill ollama # preferred
@@ -48,11 +53,16 @@ docker run -d --rm -e OLLAMA_HOST=0.0.0.0:11434 -v "$env:USERPROFILE/ollama:/roo
 
 ```powershell
 docker exec ollama ollama pull imcurie/bge-large-en-v1.5
+
+# You can remove the model with the following command:
+#   docker exec ollama ollama rm imcurie/bge-large-en-v1.5 # remove single model)
+#   docker volume rm ollama # remove all ollama data
+
 ```
 3. Clone the repo and navigate to the `simple_chatbot/bin/windows` folder.
 
 ```powershell
-git clone git@github.com:synthbot-anon/horsona.git
+git clone https://github.com/synthbot-anon/horsona.git
 cd horsona/samples/simple_chatbot/bin/windows
 ```
 
