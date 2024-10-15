@@ -13,9 +13,6 @@ from horsona.cache.base_cache import BaseCache
 
 class ListCacheContext(HorseVariable):
     def __init__(self, data=None, **kwargs):
-        if "requires_grad" in kwargs:
-            assert not kwargs["requires_grad"]
-
         super().__init__(**kwargs)
         if data is not None:
             self.data = data
@@ -47,7 +44,7 @@ class ListCacheContext(HorseVariable):
         return self.data.append(item)
 
     async def apply_gradients(self):
-        raise NotImplementedError("ListCacheContext does not support gradients")
+        pass
 
 
 T = TypeVar("T", bound=HorseType)

@@ -44,7 +44,6 @@ async def main():
     setting_db = EmbeddingDatabase(
         reasoning_llm,
         query_index,
-        requires_grad=True,
     )
 
     reader = ReaderModule(reasoning_llm, setting_db)

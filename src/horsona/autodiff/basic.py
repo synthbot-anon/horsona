@@ -59,14 +59,12 @@ class HorseVariable(HorseData, ABC):
     def __init__(
         self,
         predecessors: set["HorseVariable"] = set(),
-        requires_grad: bool = False,
         name: str = None,
         grad_fn: Callable[["GradContext"], Awaitable[None]] = None,
     ):
         super().__init__()
         self.grad_fn = grad_fn
         self.predecessors = set(predecessors)
-        self.requires_grad = requires_grad
         self.name = name
 
     async def json(self):
@@ -82,27 +80,21 @@ class HorseVariable(HorseData, ABC):
 
     def __repr__(self):
         if self.name is not None:
-            return f"{self.name}(class={self.__class__.__name__}, requires_grad={self.requires_grad})"
+            return f"{self.name}(class={self.__class__.__name__})"
         else:
-            return f"{self.__class__.__name__}(requires_grad={self.requires_grad})"
+            return f"{self.__class__.__name__}"
 
     async def apply_gradients(self, gradients: list[HorseGradient]):
-        raise NotImplementedError(
-            f"Class {self.__class__.__name__} can't accept gradients since it doesn't implement apply_gradients"
-        )
+        pass
 
     async def backward(
-        self, leaves: Collection["HorseVariable"]
+        self, params: Collection["HorseVariable"] = set()
     ) -> dict["HorseVariable", list[HorseGradient]]:
         """
         Backpropagate gradients through the computation graph starting from this
         variable.
         """
-        assert (
-            x.requires_grad for x in leaves
-        ), f"Can't call backward on a variable that doesn't require gradients"
-
-        leaf_variables = set(leaves)
+        leaf_variables = set(params)
         topo: list[HorseVariable] = []
         visited = set()
         in_path = {}
@@ -118,12 +110,11 @@ class HorseVariable(HorseData, ABC):
             is_in_path = v in leaf_variables
 
             # Recursively visit predecessors
-            if v not in leaf_variables:
-                for predecessor in v.predecessors:
-                    if build_topo(predecessor):
-                        is_in_path = True
-                        pending_parents[predecessor].add(v)
-                        children[v].add(predecessor)
+            for predecessor in v.predecessors:
+                if build_topo(predecessor):
+                    is_in_path = True
+                    pending_parents[predecessor].add(v)
+                    children[v].add(predecessor)
 
             # If the current variable is on a path to any leaf variable, add it to topo
             if is_in_path:
@@ -141,7 +132,7 @@ class HorseVariable(HorseData, ABC):
         grad_context = MappingProxyType(grad_context)
 
         async def calculate_gradients(v: HorseVariable):
-            if v.grad_fn is not None:
+            if in_path[v] and v.grad_fn is not None:
                 await v.grad_fn(grad_context)
             tasks = []
             for child in children[v]:
@@ -152,7 +143,7 @@ class HorseVariable(HorseData, ABC):
 
         await calculate_gradients(self)
 
-        return grad_context
+        return {k: grad_context[k] for k in params if k in grad_context}
 
     def __add__(self, other: "HorseVariable"):
         class Sum(HorseVariable):
@@ -251,8 +242,7 @@ class HorseModule(HorseData, ABC):
             visited = set([obj])
             for value in obj.__dict__.values():
                 if isinstance(value, HorseVariable):
-                    if value.requires_grad:
-                        yield value
+                    yield value
                 elif isinstance(value, HorseModule):
                     if value in visited:
                         continue
@@ -354,6 +344,5 @@ def state_dict(value):
 async def step(gradients: dict[HorseVariable, list[HorseGradient]]):
     tasks = []
     for v, g in gradients.items():
-        if v.requires_grad:
-            tasks.append(v.apply_gradients(g))
+        tasks.append(v.apply_gradients(g))
     await asyncio.gather(*tasks)

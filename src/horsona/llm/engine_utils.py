@@ -5,7 +5,7 @@ from xml.sax.saxutils import escape as xml_escape
 from pydantic import BaseModel
 
 
-def _convert_to_xml(obj, prefix, indent):
+def _convert_to_xml(obj, prefix=None, indent=0):
     """
     Serialize an object to a JSON string.
 
@@ -18,6 +18,9 @@ def _convert_to_xml(obj, prefix, indent):
     Returns:
         str: The JSON string representation of the object.
     """
+    if prefix is None:
+        prefix = []
+
     indent_str = "  " * indent
     if isinstance(obj, dict):
         result = []
@@ -28,20 +31,20 @@ def _convert_to_xml(obj, prefix, indent):
                 single_item = len(value) == 1
 
             if single_item and not isinstance(value, (dict, list)):
-                value_str = _convert_to_xml(value, f"{prefix}.{key}", 0)
+                value_str = _convert_to_xml(value, prefix + [key], 0)
                 closing_indent = ""
                 newline = ""
             else:
-                value_str = _convert_to_xml(value, f"{prefix}.{key}", indent + 1)
+                value_str = _convert_to_xml(value, prefix + [key], indent + 1)
                 closing_indent = indent_str
                 newline = "\n"
 
             if value_str.strip():
                 result.append(
                     (
-                        f"{indent_str}<{prefix}.{key}>{newline}"
+                        f"{indent_str}<{'.'.join((prefix + [key]))}>{newline}"
                         f"{value_str}{newline}"
-                        f"{closing_indent}</{prefix}.{key}>"
+                        f"{closing_indent}</{'.'.join((prefix + [key]))}>"
                     )
                 )
             else:
@@ -68,13 +71,17 @@ def _convert_to_xml(obj, prefix, indent):
             if value_str.strip():
                 result.append(
                     (
-                        f"{indent_str}<{prefix}.{i}>{newline}"
+                        f"{indent_str}<{'.'.join((prefix + [str(i)]))}>{newline}"
                         f"{value_str}{newline}"
-                        f"{closing_indent}</{prefix}.{i}>"
+                        f"{closing_indent}</{'.'.join((prefix + [str(i)]))}>"
                     )
                 )
             else:
-                result.append((f"{indent_str}<{prefix}.{i}></{prefix}.{i}>"))
+                result.append(
+                    (
+                        f"{indent_str}<{'.'.join((prefix + [str(i)]))}></{'.'.join((prefix + [str(i)]))}>"
+                    )
+                )
         return "\n".join(result)
     else:
         return indent_str + xml_escape(str(obj))
@@ -94,7 +101,7 @@ async def compile_user_prompt(**kwargs):
     """
     prompt_pieces = []
     for key, value in kwargs.items():
-        value = _convert_to_xml(await _convert_to_dict(value), key, 1)
+        value = _convert_to_xml(await _convert_to_dict(value), None, 1)
         prompt_pieces.append(f"<{key}>\n{value}\n</{key}>")
 
     return "\n\n".join(prompt_pieces)

@@ -45,16 +45,27 @@ class Value(HorseVariable, Generic[HorseType]):
         >>> await param.apply_gradients([{"change": 5}])
     """
 
+    datatype: str
     value: HorseType
     VALUE_TYPE: Optional[Type[HorseType]] = None
 
-    def __init__(self, value: HorseType, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        datatype: str,
+        value: HorseType,
+        updater_llm: AsyncLLMEngine = None,
+        **kwargs,
+    ):
         if self.VALUE_TYPE and isinstance(value, dict):
             value = self.VALUE_TYPE(value)
         if self.VALUE_TYPE is None:
             self.VALUE_TYPE = type(value)
+
+        super().__init__(**kwargs)
+
+        self.datatype = datatype
         self.value = value
+        self.updater_llm = updater_llm
 
     async def derive(self, value: HorseType, **kwargs):
         """
@@ -70,24 +81,14 @@ class Value(HorseVariable, Generic[HorseType]):
             value = self.VALUE_TYPE(value)
         if self.VALUE_TYPE is None:
             self.VALUE_TYPE = type(value)
-        return Value(value, kwargs)
-
-    async def json(self):
-        return self.value
-
-
-class Parameter(Value):
-    def __init__(
-        self,
-        value: HorseType,
-        updater_llm: AsyncLLMEngine,
-        requires_grad=True,
-        **kwargs,
-    ):
-        super().__init__(value, requires_grad=requires_grad, **kwargs)
-        self.updater_llm = updater_llm
+        return Value(self.datatype, value, kwargs)
 
     async def apply_gradients(self, gradients: list[HorseGradient]):
+        if not self.updater_llm:
+            raise ValueError(
+                f"Cannot apply gradients to {self} without an updater LLM."
+            )
+
         class UpdatedValue(BaseModel):
             final_value: type(self.value)
 
@@ -95,11 +96,16 @@ class Parameter(Value):
             UpdatedValue,
             DATA=self,
             ERRATA=gradients,
+            DATATYPE=self.datatype,
             TASK=(
-                "You are maintaining the DATA with the latest information. "
+                "You are maintaining the DATA, which is an instance of DATATYPE. "
                 "A user provided ERRATA to the DATA. "
-                "Correct the DATA to address the ERRATA."
+                "Revise the DATA to resolve the ERRATA. "
+                "Make sure the revised DATA is an instance of the same DATATYPE."
             ),
         )
 
         self.value = update.final_value
+
+    async def json(self):
+        return self.value

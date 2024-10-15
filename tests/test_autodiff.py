@@ -2,13 +2,13 @@ import pytest
 from horsona.autodiff.basic import step
 from horsona.autodiff.functions import extract_object
 from horsona.autodiff.losses import apply_loss
-from horsona.autodiff.variables import Parameter
+from horsona.autodiff.variables import Value
 from pydantic import BaseModel
 
 
 @pytest.mark.asyncio
 async def test_autodiff(reasoning_llm):
-    input_text = Parameter("My name is Luna", reasoning_llm)
+    input_text = Value("Story dialogue", "Hello Luna.", reasoning_llm)
 
     class PonyName(BaseModel):
         name: str
@@ -27,4 +27,4 @@ async def test_autodiff(reasoning_llm):
     gradients = await loss.backward([input_text])
     await step(gradients)
 
-    assert input_text.value == "My name is Princess Celestia"
+    assert input_text.value == "Hello Princess Celestia."

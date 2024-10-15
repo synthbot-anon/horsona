@@ -24,16 +24,18 @@ SAMPLE_DATA = {
 
 @pytest.mark.asyncio
 async def test_update_database(reasoning_llm, query_index):
-    database = EmbeddingDatabase(reasoning_llm, query_index, requires_grad=True)
+    database = EmbeddingDatabase(reasoning_llm, query_index)
     print(database)
     await database.insert(SAMPLE_DATA)
 
     cache = DatabaseCache(reasoning_llm, database, 5, name="test_db")
 
-    context = await cache.load(Value("Who is Honeycrisp?"))
+    context = await cache.load(Value("Search query", "Who is Honeycrisp?"))
     loss = await apply_loss(
         context,
-        DatabaseTextGradient(context=context, change=Value("Honeycrisp is blue")),
+        DatabaseTextGradient(
+            context=context, change=Value("Data correction", "Honeycrisp is blue")
+        ),
     ) + await apply_loss(
         context,
         DatabaseOpGradient(

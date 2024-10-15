@@ -21,9 +21,6 @@ from horsona.llm.base_engine import AsyncLLMEngine
 
 class DatabaseCacheContext(HorseVariable):
     def __init__(self, data=None, **kwargs):
-        if "requires_grad" in kwargs:
-            assert not kwargs["requires_grad"]
-
         super().__init__(**kwargs)
         if data is not None:
             self.data = OrderedDict(data)

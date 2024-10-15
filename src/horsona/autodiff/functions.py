@@ -15,7 +15,7 @@ from horsona.llm.base_engine import AsyncLLMEngine
 @horsefunction
 async def extract_object(
     llm: AsyncLLMEngine,
-    model_cls: type[HorseVariable],
+    model_cls: type[BaseModel],
     **kwargs,
 ) -> AsyncGenerator[Value, GradContext]:
     extraction = await llm.query_object(
@@ -25,6 +25,7 @@ async def extract_object(
 
     variable_inputs = {k: v for k, v in kwargs.items() if isinstance(v, HorseVariable)}
     result = Value(
+        datatype=model_cls.__name__,
         value=extraction,
         predecessors=list(variable_inputs.values()),
     )
@@ -61,6 +62,7 @@ async def assign_feedback(
         RESULT=result,
         FEEDBACK=grad_context[result],
         TASK=(
+            "The INPUTS have the format <name>value</name>. "
             "The FEEDBACK was given when extracting RESULT from INPUTS. "
             f"Based on the errors, determine which list of FEEDBACK items applies for each INPUT {list(inputs.keys())}."
         ),
@@ -76,4 +78,6 @@ async def assign_feedback(
         if variable not in grad_context:
             continue
 
-        grad_context[variable].extend([Value(x) for x in change.relevant_feedback])
+        grad_context[variable].extend(
+            [Value("Feedback", x) for x in change.relevant_feedback]
+        )

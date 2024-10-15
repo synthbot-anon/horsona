@@ -86,7 +86,7 @@ class ReaderModule(HorseModule):
         self.database_cache = database_cache
 
         if live_cache is None:
-            live_cache = ValueCache(Value(LiveState()))
+            live_cache = ValueCache(Value("Live state", LiveState()))
         self.live_cache: ValueCache = live_cache
 
     async def read(self, paragraph: Value) -> tuple[ReadContext, ReadContextLoss]:
@@ -118,6 +118,7 @@ class ReaderModule(HorseModule):
         for q in search.queries:
             database_context = await self.database_cache.load(
                 Value(
+                    "Search query",
                     q,
                     predecessors=[
                         paragraph,
@@ -166,16 +167,19 @@ class ReaderModule(HorseModule):
         )
 
         new_info = Value(
+            "New information",
             {i.query: i.result for i in new_info.information},
             predecessors=[database_context, buffer_context, state_context, paragraph],
         )
 
         corrections = Value(
+            "Data corrections",
             update.memory_corrections,
             predecessors=[database_context, buffer_context, state_context, paragraph],
         )
 
         new_state_value = Value(
+            self.live_cache.context.datatype,
             update.new_state,
             predecessors=[
                 paragraph,

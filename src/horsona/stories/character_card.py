@@ -20,7 +20,7 @@ class CharacterCardContext(
     BaseCache[Value[dict[str, CharacterInfo]], Value[str | list[str]]]
 ):
     def __init__(self, llm: AsyncLLMEngine):
-        super().__init__(Value({}))
+        super().__init__(Value("Character info", {}))
         self.llm = llm
 
     async def _update_character(
@@ -91,6 +91,7 @@ class CharacterCardContext(
             current_info.update(update)
 
         self.context = Value(
+            "Character info",
             current_info,
             predecessors=[background_context, paragraph],
         )
@@ -112,4 +113,6 @@ class CharacterCardContext(
                 continue
             result[name] = self.context.value[name]
 
-        grad_context = yield Value(result, predecessors=[query, self.context.value])
+        grad_context = yield Value(
+            self.context.datatype, result, predecessors=[query, self.context.value]
+        )

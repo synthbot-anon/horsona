@@ -18,13 +18,12 @@ async def test_reader(reasoning_llm, query_index: HnswEmbeddingIndex):
     setting_db = EmbeddingDatabase(
         reasoning_llm,
         query_index,
-        requires_grad=True,
     )
     reader = ReaderModule(reasoning_llm, setting_db)
 
     for p in story_paragraphs:
         # Figure out what's new in the paragraph
-        read_context, read_context_loss = await reader.read(Value(p))
+        read_context, read_context_loss = await reader.read(Value("Story paragraph", p))
 
         # Update the reader's state based on what was read
         gradients = await read_context_loss.backward(reader.parameters())
@@ -67,7 +66,6 @@ async def test_generate_character_card(reasoning_llm, query_index):
     setting_db = EmbeddingDatabase(
         reasoning_llm,
         query_index,
-        requires_grad=True,
     )
     reader = ReaderModule(reasoning_llm, setting_db)
     characters = CharacterCardContext(reasoning_llm)
@@ -77,12 +75,11 @@ async def test_generate_character_card(reasoning_llm, query_index):
 
     for p in story_paragraphs:
         # Figure out what's new in the paragraph
-        p = Value(p)
+        p = Value("Story paragraph", p)
         read_context, read_context_loss = await reader.read(p)
         await characters.update(
             read_context.state_context.value.characters_in_scene, read_context, p
         )
-        print(characters.context.value)
 
         # Update the reader's state based on what was read
         gradients = await read_context_loss.backward(reader.parameters())
