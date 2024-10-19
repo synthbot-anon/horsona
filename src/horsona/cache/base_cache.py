@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import Generic, TypeVar
 
-from horsona.autodiff.basic import HorseModule, HorseVariable
+from horsona.autodiff.basic import HorseData, HorseVariable
 
-C = TypeVar("C", bound=HorseVariable)
+S = TypeVar("S", bound=HorseVariable)
 Q = TypeVar("Q", bound=HorseVariable)
 
 
-class BaseCache(HorseModule, Generic[C, Q], ABC):
+class BaseCache(Generic[S, Q], HorseData, ABC):
     """
     An abstract base class for a cache module in the Horse framework.
 
@@ -41,21 +41,10 @@ class BaseCache(HorseModule, Generic[C, Q], ABC):
         >>> synced_cache = await cache.sync()
     """
 
-    context: C
-
-    def __init__(self, context: C, **kwargs):
-        """
-        Initialize a BaseCache instance with the given context.
-
-        Args:
-            context (C): The initial context (cache content) to be stored.
-            **kwargs: Additional keyword arguments to be passed to the parent HorseModule class.
-        """
-        super().__init__(**kwargs)
-        self.context = context
+    context: S
 
     @abstractmethod
-    async def load(self, query: Q, **kwargs) -> C:
+    async def load(self, query: Q, **kwargs) -> S:
         """
         Load new data into the cache based on the provided query.
 
@@ -71,7 +60,8 @@ class BaseCache(HorseModule, Generic[C, Q], ABC):
         """
         ...
 
-    async def sync(self) -> C:
+    @abstractmethod
+    async def sync(self) -> S:
         """
         Synchronize the cache with its data source.
 
@@ -81,4 +71,4 @@ class BaseCache(HorseModule, Generic[C, Q], ABC):
         Returns:
             C: The updated cache after synchronization.
         """
-        return self.context
+        ...

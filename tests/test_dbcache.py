@@ -1,5 +1,4 @@
 import pytest
-from horsona.autodiff.basic import step
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
 from horsona.cache.db_cache import DatabaseCache
@@ -48,8 +47,7 @@ async def test_update_database(reasoning_llm, query_index):
         ),
     )
 
-    gradients = await loss.backward([database])
-    await step(gradients)
+    await loss.step([database])
 
     result = await database.query("Who is Honeycrisp")
     assert "A blue earth pony mare, Honeycrisp, appeared on screen" in result.values()

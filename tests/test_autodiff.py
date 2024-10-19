@@ -1,5 +1,4 @@
 import pytest
-from horsona.autodiff.basic import step
 from horsona.autodiff.functions import extract_object
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
@@ -24,7 +23,6 @@ async def test_autodiff(reasoning_llm):
         extracted_name, "The name should be Celestia"
     ) + await apply_loss(extracted_name, "They should be addressed as Princess")
 
-    gradients = await loss.backward([input_text])
-    await step(gradients)
+    await loss.step([input_text])
 
     assert input_text.value == "Hello Princess Celestia."

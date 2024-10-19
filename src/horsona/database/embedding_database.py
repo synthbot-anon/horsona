@@ -1,4 +1,3 @@
-from horsona.autodiff.basic import load_state_dict, state_dict
 from horsona.database.base_database import Database
 from horsona.index.base_index import BaseIndex
 

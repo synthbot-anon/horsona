@@ -5,20 +5,9 @@ from abc import ABC
 from collections import defaultdict
 from functools import wraps
 from types import MappingProxyType
-from typing import (
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Collection,
-    Generator,
-    ParamSpec,
-    Type,
-    TypeVar,
-    Union,
-    overload,
-)
+from typing import (AsyncGenerator, Awaitable, Callable, Collection, Generator,
+                    ParamSpec, Type, TypeVar, Union, overload)
 
-from anthropic import NoneType
 from pydantic import BaseModel
 
 
@@ -52,7 +41,7 @@ class HorseData:
         try:
             return cls(**kwargs)
         except Exception as e:
-            raise Exception(f"Error loading {'.'.join(debug_prefix)} ({cls})") from e
+            raise ValueError(f"Exception {e} when loading {cls.__name__}")
 
 
 class HorseVariable(HorseData, ABC):
@@ -75,6 +64,7 @@ class HorseVariable(HorseData, ABC):
     def state_dict(self, **override):
         fields = self.__dict__.copy()
         del fields["predecessors"]
+        del fields["grad_fn"]
         fields.update(override)
         return state_dict(fields)["data"]
 
@@ -143,7 +133,15 @@ class HorseVariable(HorseData, ABC):
 
         await calculate_gradients(self)
 
-        return {k: grad_context[k] for k in params if k in grad_context}
+        return grad_context
+
+    async def step(self, params: Collection["HorseVariable"]):
+        gradients = await self.backward(params)
+        tasks = []
+        for v, g in gradients.items():
+            if v in params:
+                tasks.append(v.apply_gradients(g))
+        await asyncio.gather(*tasks)
 
     def __add__(self, other: "HorseVariable"):
         class Sum(HorseVariable):
@@ -160,6 +158,19 @@ class HorseVariable(HorseData, ABC):
             context[b].extend(context[result])
 
         return sum_variables(self, other)
+
+    def parameters(self):
+        def _parameters(obj):
+            visited = set([obj])
+            for value in obj.__dict__.values():
+                if isinstance(value, HorseVariable):
+                    if value in visited:
+                        continue
+                    visited.add(value)
+                    yield value
+                    yield from value.parameters()
+
+        return list(_parameters(self))
 
 
 P = ParamSpec("P")
@@ -191,6 +202,7 @@ def horsefunction(
             generator = func(*args, **kwargs)
             result: HorseVariable = await generator.__anext__()
 
+            @wraps(func)
             async def backward(context):
                 try:
                     await generator.asend(context)
@@ -208,6 +220,7 @@ def horsefunction(
             generator = func(*args, **kwargs)
             result: HorseVariable = next(generator)
 
+            @wraps(func)
             async def backward(context):
                 try:
                     generator.send(context)
@@ -224,31 +237,8 @@ def horsefunction(
         )
 
 
-class HorseModule(HorseData, ABC):
+class HorseModule(HorseVariable, ABC):
     """Abstract module class with parameters akin to PyTorch's nn.Module."""
-
-    def __init__(self, name=None):
-        super().__init__()
-        self.name = name
-
-    def __repr__(self):
-        if self.name is not None:
-            return f"{self.name}(class={self.__class__.__name__})"
-        else:
-            return f"{self.__class__.__name__}()"
-
-    def parameters(self):
-        def _parameters(obj):
-            visited = set([obj])
-            for value in obj.__dict__.values():
-                if isinstance(value, HorseVariable):
-                    yield value
-                elif isinstance(value, HorseModule):
-                    if value in visited:
-                        continue
-                    yield from value.parameters()
-
-        return list(_parameters(self))
 
 
 def load_state_dict(state_dict, args, debug_prefix=[]):
@@ -339,10 +329,3 @@ def state_dict(value):
         }
     else:
         return None
-
-
-async def step(gradients: dict[HorseVariable, list[HorseGradient]]):
-    tasks = []
-    for v, g in gradients.items():
-        tasks.append(v.apply_gradients(g))
-    await asyncio.gather(*tasks)

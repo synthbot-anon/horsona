@@ -1,10 +1,10 @@
 import asyncio
-from typing import AsyncGenerator, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 
-from horsona.autodiff.basic import GradContext, HorseVariable, horsefunction
-from horsona.autodiff.variables import Value
+from horsona.autodiff.basic import HorseVariable
+from horsona.autodiff.variables import DatabaseValue, Value
 from horsona.cache.base_cache import BaseCache
 from horsona.llm.base_engine import AsyncLLMEngine
 
@@ -16,11 +16,11 @@ class CharacterInfo(BaseModel):
     new_quotes: Optional[list[str]] = None
 
 
-class CharacterCardContext(
-    BaseCache[Value[dict[str, CharacterInfo]], Value[str | list[str]]]
-):
-    def __init__(self, llm: AsyncLLMEngine):
-        super().__init__(Value("Character info", {}))
+class CharacterCardContext(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
+    def __init__(self, llm: AsyncLLMEngine, **kwargs):
+        # super().__init__(Value("Character info", {}))
+        BaseCache.__init__(self)
+        DatabaseValue.__init__(self, data={}, **kwargs)
         self.llm = llm
 
     async def _update_character(
@@ -31,7 +31,7 @@ class CharacterCardContext(
     ) -> None:
         new_info = {}
 
-        if name not in self.context.value:
+        if name not in self.data:
             current_info = new_info[name] = {
                 "name": name,
                 "synopsis": "unknown",
@@ -40,7 +40,7 @@ class CharacterCardContext(
                 "quotes": [],
             }
         else:
-            current_info = self.context.value[name]
+            current_info = self.data[name]
 
         updates = await self.llm.query_object(
             CharacterInfo,
@@ -68,13 +68,12 @@ class CharacterCardContext(
 
         return new_info
 
-    @horsefunction
     async def update(
         self,
         required_characters: list[str],
         background_context: HorseVariable,
         paragraph: Value,
-    ) -> AsyncGenerator[Value[dict[str, CharacterInfo]], GradContext]:
+    ) -> "CharacterCardContext":
         updates = await asyncio.gather(
             *[
                 self._update_character(
@@ -86,22 +85,17 @@ class CharacterCardContext(
             ]
         )
 
-        current_info = self.context.value.copy()
+        current_info = self.data.copy()
         for update in updates:
             current_info.update(update)
 
-        self.context = Value(
-            "Character info",
-            current_info,
-            predecessors=[background_context, paragraph],
-        )
+        self.data = current_info
 
-        grad_context = yield self.context
+        return self
 
-    @horsefunction
     async def load(
         self, query: Value[str | list[str]], **kwargs
-    ) -> AsyncGenerator[Value[dict[str, CharacterInfo]], GradContext]:
+    ) -> "CharacterCardContext":
         if isinstance(query.value, str):
             q = [query.value]
         else:
@@ -113,6 +107,7 @@ class CharacterCardContext(
                 continue
             result[name] = self.context.value[name]
 
-        grad_context = yield Value(
-            self.context.datatype, result, predecessors=[query, self.context.value]
-        )
+        return self
+
+    async def sync(self) -> "CharacterCardContext":
+        return self

@@ -1,82 +1,34 @@
 from typing import AsyncGenerator, Generic, TypeVar
 
-from horsona.autodiff.basic import (
-    GradContext,
-    HorseVariable,
-    horsefunction,
-    load_state_dict,
-    state_dict,
-)
-from horsona.autodiff.variables import HorseType, Value
+from horsona.autodiff.basic import GradContext, horsefunction
+from horsona.autodiff.variables import HorseType, ListValue, Value
 from horsona.cache.base_cache import BaseCache
-
-
-class ListCacheContext(HorseVariable):
-    def __init__(self, data=None, **kwargs):
-        super().__init__(**kwargs)
-        if data is not None:
-            self.data = data
-        else:
-            self.data = []
-
-    async def json(self):
-        return self.data
-
-    def __getitem__(self, key):
-        return self.data[key]
-
-    def __setitem__(self, key, value):
-        self.data[key] = value
-
-    def __delitem__(self, key):
-        del self.data[key]
-
-    def __contains__(self, key):
-        return key in self.data
-
-    def __len__(self):
-        return len(self.data)
-
-    def extend(self, other):
-        return self.data.extend(other.data)
-
-    def append(self, item):
-        return self.data.append(item)
-
-    async def apply_gradients(self):
-        pass
-
 
 T = TypeVar("T", bound=HorseType)
 
 
-class ListCache(BaseCache[ListCacheContext, Value[T]], Generic[T]):
-    context: ListCacheContext
-
-    def __init__(self, size, context=None, name=None, **kwargs):
-        if context == None:
-            if name is not None:
-                context = ListCacheContext(name=f"{name}Context")
-            else:
-                context = ListCacheContext()
-
-        super().__init__(context, name=name, **kwargs)
-        self.size = size
+class ListCache(ListValue, BaseCache[ListValue, Value[T]], Generic[T]):
+    def __init__(self, max_size, data=None, **kwargs):
+        ListValue.__init__(self, data=data, **kwargs)
+        BaseCache.__init__(self)
+        self.max_size = max_size
 
     @horsefunction
-    async def load(
-        self, item: Value[T]
-    ) -> AsyncGenerator[ListCacheContext, GradContext]:
-        old_context = self.context
-        new_context = ListCacheContext(predecessors=[old_context, item])
-        new_context.extend(old_context)
+    async def load(self, item: Value[T]) -> AsyncGenerator[ListValue, GradContext]:
+        new_data = self.data + [item]
+        if len(new_data) > self.max_size:
+            new_data = new_data[-self.max_size :]
 
-        new_context.append(item)
+        new_context = ListCache(
+            max_size=self.max_size,
+            data=new_data,
+            name=self.name,
+            predecessors=[self, item],
+        )
 
-        while len(new_context) > self.size:
-            del new_context[0]
-
-        self.context = new_context
         yield new_context
 
         # TODO: This should backprop gradients to items in the cache
+
+    async def sync(self) -> ListValue:
+        return self

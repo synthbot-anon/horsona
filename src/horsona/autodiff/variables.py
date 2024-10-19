@@ -1,13 +1,9 @@
+from collections import OrderedDict
 from typing import Generic, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
-from horsona.autodiff.basic import (
-    HorseGradient,
-    HorseVariable,
-    load_state_dict,
-    state_dict,
-)
+from horsona.autodiff.basic import HorseGradient, HorseVariable, horsefunction
 from horsona.llm.base_engine import AsyncLLMEngine
 
 HorseType = TypeVar("HorseType", bound=Union[BaseModel, dict, int, float, bool, list])
@@ -61,6 +57,9 @@ class Value(HorseVariable, Generic[HorseType]):
         if self.VALUE_TYPE is None:
             self.VALUE_TYPE = type(value)
 
+        if "name" not in kwargs:
+            kwargs["name"] = datatype.replace(" ", "_").lower()
+
         super().__init__(**kwargs)
 
         self.datatype = datatype
@@ -81,7 +80,7 @@ class Value(HorseVariable, Generic[HorseType]):
             value = self.VALUE_TYPE(value)
         if self.VALUE_TYPE is None:
             self.VALUE_TYPE = type(value)
-        return Value(self.datatype, value, kwargs)
+        return Value(self.datatype, value, **kwargs)
 
     async def apply_gradients(self, gradients: list[HorseGradient]):
         if not self.updater_llm:
@@ -99,7 +98,7 @@ class Value(HorseVariable, Generic[HorseType]):
             DATATYPE=self.datatype,
             TASK=(
                 "You are maintaining the DATA, which is an instance of DATATYPE. "
-                "A user provided ERRATA to the DATA. "
+                "The ERRATA applies the DATA. "
                 "Revise the DATA to resolve the ERRATA. "
                 "Make sure the revised DATA is an instance of the same DATATYPE."
             ),
@@ -109,3 +108,97 @@ class Value(HorseVariable, Generic[HorseType]):
 
     async def json(self):
         return self.value
+
+    def __iter__(self):
+        return iter(self.value)
+
+    def __getitem__(self, key):
+        return self.value[key]
+
+    def __setitem__(self, key, value):
+        self.value[key] = value
+
+
+class DatabaseValue(HorseVariable):
+    def __init__(self, data=None, **kwargs):
+        super().__init__(**kwargs)
+        if data is not None:
+            self.data = OrderedDict(data)
+        else:
+            self.data = OrderedDict()
+
+    async def json(self):
+        return self.data
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def __delitem__(self, key):
+        del self.data[key]
+
+    def __contains__(self, key):
+        return key in self.data
+
+    def update(self, other):
+        self.data.update(other.data)
+
+    def __len__(self):
+        return len(self.data)
+
+    def keys(self):
+        return self.data.keys()
+
+    def values(self):
+        return self.data.values()
+
+    def items(self):
+        return self.data.items()
+
+    def popitem(self, last=True):
+        return self.data.popitem(last=last)
+
+    def state_dict(self):
+        return super().state_dict(data=list(self.data.items()))
+
+
+class ListValue(HorseVariable):
+    def __init__(self, data=None, **kwargs):
+        super().__init__(**kwargs)
+        if data is not None:
+            self.data = data
+        else:
+            self.data = []
+
+    async def json(self):
+        return self.data
+
+    def __getitem__(self, key):
+        return self.data[key]
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+
+    def __delitem__(self, key):
+        del self.data[key]
+
+    def __contains__(self, key):
+        return key in self.data
+
+    def __len__(self):
+        return len(self.data)
+
+    @horsefunction
+    def extend(self, other):
+        result = ListValue(self.data + other.data, predecessors=[self, other])
+        yield result
+
+    @horsefunction
+    def append(self, item):
+        result = ListValue(self.data + [item], predecessors=[self])
+        yield result
+
+    async def apply_gradients(self, gradients: list[HorseGradient]):
+        pass
