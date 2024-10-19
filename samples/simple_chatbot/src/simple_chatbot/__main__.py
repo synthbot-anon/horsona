@@ -4,8 +4,6 @@ import sys
 
 import aiofiles
 from dotenv import load_dotenv
-from pydantic import BaseModel
-
 from horsona.autodiff.variables import Value
 from horsona.cache.db_cache import DatabaseCache
 from horsona.cache.list_cache import ListCache
@@ -13,6 +11,7 @@ from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.index import indices_from_config
 from horsona.io.reader import ReaderModule
 from horsona.llm import engines_from_config
+from pydantic import BaseModel
 
 # Load API keys from .env file
 load_dotenv(".env")
@@ -42,6 +41,7 @@ async def async_input(prompt: str) -> str:
         contents = await file.readline()
     return contents
 
+
 class LiveState(BaseModel):
     current_location: str = "unknown"
     CHARACTER_mental_state: str = "unknown"
@@ -70,7 +70,9 @@ async def main():
         if not user_msg:
             break
 
-        read_context, loss1 = await reader.read(read_context, Value("User message", "The user says: " + user_msg))
+        read_context, loss1 = await reader.read(
+            read_context, Value("User message", "The user says: " + user_msg)
+        )
 
         response = await reasoning_llm.query_block(
             "text",
@@ -85,13 +87,17 @@ async def main():
             ),
         )
 
-        print(f"{character_info['name']}: {response}")
+        print(f"=== {character_info['name']} ===")
+        print(f"{response}")
+        print()
 
         async def update():
             nonlocal read_context
             read_context, loss2 = await reader.read(
                 read_context,
-                Value("Character message", f"{character_info['name']} says: " + response)
+                Value(
+                    "Character message", f"{character_info['name']} says: " + response
+                ),
             )
             await (loss1 + loss2).step([setting_db])
 

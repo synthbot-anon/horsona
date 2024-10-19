@@ -3,9 +3,8 @@
     "query_index": {
       "type": "HnswEmbeddingIndex",
       "embedding": {
-        "type": "OllamaEmbeddingModel",
-        "model": "imcurie/bge-large-en-v1.5",
-        "url": "host.docker.internal:11434"
+        "type": "OpenAIEmbeddingModel",
+        "model": "text-embedding-3-small"
       }
     }
   }

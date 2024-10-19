@@ -674,8 +674,8 @@ together = "^1.2.7"
 [package.source]
 type = "git"
 url = "https://github.com/synthbot-anon/horsona"
-reference = "319a528fcfa7c633c319f847b6cfd02a92571d2b"
-resolved_reference = "319a528fcfa7c633c319f847b6cfd02a92571d2b"
+reference = "8173101600b2d6a425e39001e6029ffe8174c137"
+resolved_reference = "8173101600b2d6a425e39001e6029ffe8174c137"
 
 [[package]]
 name = "httpcore"
@@ -1996,4 +1996,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "13458915b2f7cb01ecbd4edc8ea27bb0cd2d577c499928aa2448c55b2d501aa3"
+content-hash = "1a5e1d0e9a31c4b0cfd3023cc38ef938490cee05814462731b738bcc08b026a3"

@@ -26,7 +26,7 @@ docker exec ollama ollama pull imcurie/bge-large-en-v1.5
 #   docker volume rm ollama # remove all ollama data
 
 ```
-3. Clone the repo and navigate to the `simple_chatbot/bin/windows` folder.
+3. Clone the repo and navigate to the `simple_chatbot/bin/linux` folder.
 
 ```powershell
 git clone https://github.com/synthbot-anon/horsona.git
