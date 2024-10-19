@@ -3,15 +3,12 @@ from typing import AsyncGenerator
 
 from pydantic import BaseModel
 
-from horsona.autodiff.basic import (
-    GradContext,
-    HorseModule,
-    HorseVariable,
-    horsefunction,
-)
+from horsona.autodiff.basic import (GradContext, HorseModule, HorseVariable,
+                                    horsefunction)
 from horsona.autodiff.variables import Value
 from horsona.cache.db_cache import DatabaseCache, DatabaseValue
-from horsona.database.base_database import DatabaseInsertGradient, DatabaseTextGradient
+from horsona.database.base_database import (DatabaseInsertGradient,
+                                            DatabaseTextGradient)
 from horsona.llm.base_engine import AsyncLLMEngine
 
 

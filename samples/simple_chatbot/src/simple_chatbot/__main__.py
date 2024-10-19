@@ -4,12 +4,15 @@ import sys
 
 import aiofiles
 from dotenv import load_dotenv
-from horsona.autodiff.basic import step
+from pydantic import BaseModel
+
 from horsona.autodiff.variables import Value
+from horsona.cache.db_cache import DatabaseCache
+from horsona.cache.list_cache import ListCache
 from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.index import indices_from_config
+from horsona.io.reader import ReaderModule
 from horsona.llm import engines_from_config
-from horsona.stories.reader import ReaderModule
 
 # Load API keys from .env file
 load_dotenv(".env")
@@ -39,15 +42,26 @@ async def async_input(prompt: str) -> str:
         contents = await file.readline()
     return contents
 
+class LiveState(BaseModel):
+    current_location: str = "unknown"
+    CHARACTER_mental_state: str = "unknown"
+    USER_mental_state: str = "unknown"
+    current_goal: str = "unknown"
+
 
 async def main():
     setting_db = EmbeddingDatabase(
         reasoning_llm,
         query_index,
     )
+    database_context = DatabaseCache(reasoning_llm, setting_db, 10)
+    buffer_context = ListCache(5)
+    state_context = Value("Live state", LiveState())
 
-    reader = ReaderModule(reasoning_llm, setting_db)
-    context = ""
+    reader = ReaderModule(reasoning_llm)
+    read_context = await reader.create_context(
+        database_context, buffer_context, state_context
+    )
 
     user_msg = await async_input("User: ")
 
@@ -56,11 +70,11 @@ async def main():
         if not user_msg:
             break
 
-        context, loss1 = await reader.read(Value("The user says: " + user_msg))
+        read_context, loss1 = await reader.read(read_context, Value("User message", "The user says: " + user_msg))
 
         response = await reasoning_llm.query_block(
             "text",
-            CONTEXT=context,
+            CONTEXT=read_context,
             USER_MESSAGE=user_msg,
             CHARACTER_NAME=character_info["name"],
             CHARACTER_INFO=character_info,
@@ -74,11 +88,12 @@ async def main():
         print(f"{character_info['name']}: {response}")
 
         async def update():
-            context, loss2 = await reader.read(
-                Value(f"{character_info['name']} says: " + response)
+            nonlocal read_context
+            read_context, loss2 = await reader.read(
+                read_context,
+                Value("Character message", f"{character_info['name']} says: " + response)
             )
-            gradients = await (loss1 + loss2).backward(reader.parameters())
-            await step(gradients)
+            await (loss1 + loss2).step([setting_db])
 
         user_msg, _ = await asyncio.gather(async_input("User: "), update())
 
