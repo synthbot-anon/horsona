@@ -19,7 +19,7 @@ cd horsona/samples/simple_chatbot/bin/windows
 
 > This uses OpenAI for ease of setup. This is VERY SLOW with the OpenAI API.
 > For faster responses:
-> - Configure `llm_config.json` to use Cerebras or Fireworks. (See below.)\
+> - Configure `llm_config.json` to use Cerebras or Fireworks. (See below.)
 > - Configure `index_config.json` to use Ollama for embeddings. (See below.)
 
 # Using a different LLM API
