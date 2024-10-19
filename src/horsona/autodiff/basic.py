@@ -5,8 +5,18 @@ from abc import ABC
 from collections import defaultdict
 from functools import wraps
 from types import MappingProxyType
-from typing import (AsyncGenerator, Awaitable, Callable, Collection, Generator,
-                    ParamSpec, Type, TypeVar, Union, overload)
+from typing import (
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Collection,
+    Generator,
+    ParamSpec,
+    Type,
+    TypeVar,
+    Union,
+    overload,
+)
 
 from pydantic import BaseModel
 

@@ -1,6 +1,4 @@
 import pytest
-from pydantic import BaseModel
-
 from horsona.autodiff.variables import Value
 from horsona.cache.db_cache import DatabaseCache
 from horsona.cache.list_cache import ListCache
@@ -8,6 +6,7 @@ from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.index.hnsw_index import HnswEmbeddingIndex
 from horsona.io.reader import ReadContext, ReaderModule
 from horsona.stories.character_card import CharacterCardContext
+from pydantic import BaseModel
 
 STORY = """James looked skeptically at his friend David as he sat down at computer #12.
 David had won the Hasbro raffle for one of fifteen all-expenses-paid trips for two to Pawtucket, Rhode Island to play the first alpha build of the official My Little Pony MMO: Equestria Online. Hasbro had claimed that a game that revolved so heavily around friendship needed actual friends to test properly.

@@ -1,6 +1,7 @@
 from horsona.index.base_index import BaseIndex
 from horsona.index.hnsw_index import HnswEmbeddingIndex
 from horsona.index.ollama_model import OllamaEmbeddingModel
+from horsona.index.openai_embedding_model import OpenAIEmbeddingModel
 
 
 def indices_from_config(config: dict) -> dict[str, BaseIndex]:
@@ -24,3 +25,8 @@ def embedding_model_from_config(config: dict):
         model = config["model"]
         url = config.get("url")
         return OllamaEmbeddingModel(model, url=url)
+    elif config["type"] == "OpenAIEmbeddingModel":
+        model = config["model"]
+        return OpenAIEmbeddingModel(model)
+    else:
+        raise ValueError(f"Unknown embedding model type: {config['type']}")
