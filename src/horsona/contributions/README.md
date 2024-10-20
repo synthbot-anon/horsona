@@ -37,6 +37,9 @@ When contributing a new module, make sure to include appropriate tests in the `t
 
 For an example of how to structure your tests, refer to the `test_pose_module.py` file in the `tests/contributions` directory.
 
+## Modifying the Horsona library
+Core parts of the library are frequently updated, so please keep all of your changes in your `contributions/*` folder. If you need to something changed outside of your `contributions/*` folder, please notify me and/or create an issue so that either I can make the change or we can coordinate working on the change together.
+
 ## Questions and Support
 
 If you have any questions about contributing or need support in developing your module, please don't hesitate to open an issue or reach out to the maintainers.
