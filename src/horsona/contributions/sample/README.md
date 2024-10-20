@@ -13,7 +13,7 @@ This folder contains a sample implementation of a HorseModule, which serves as a
 When creating a new HorseModule, ensure that you follow these requirements:
 
 1. Extend the `HorseModule` class.
-2. Make sure every field retained by the HorseModule is a matching constructor argument with the same name.
+2. Make sure every field retained by the HorseModule is a matching constructor argument with the same name. This will allow the module to be saved and restored.
 3. Implement the main functionality as an asynchronous method.
 4. Decorate the main functionality method with `@horsefunction`.
 5. Set the return type of the main functionality method as `AsyncGenerator` with the return type as the yield result type and `GradContext` as the yield input type.

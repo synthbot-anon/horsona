@@ -25,19 +25,32 @@ When creating a test case for a new HorseModule, follow these guidelines:
    - Call the `step()` function on the combined loss object, passing all variables that should be updated.
    - Assert that the changes have been propagated back to the input variables as expected.
 
+5. Test saving and restoring the module:
+   - Create an instance of your module with specific parameters.
+   - Save the module's state using `state_dict()`.
+   - Create a new instance of your module using `load_state_dict()` with the saved state.
+   - Assert that the restored module has the same properties as the original.
+
 ## Example: PoseModule Test
 
-The `test_pose_module` function in `test_pose_module.py` demonstrates these principles:
+The `test_pose_module.py` file demonstrates these principles:
 
-1. It sets up a PoseModule with a reasoning LLM.
-2. It creates input variables for character info and context.
-3. It generates a pose using the module and asserts the output structure and content.
-4. It applies two losses:
-   - One to change the pose from standing to sitting.
-   - Another to correct the character's species from Unicorn to Alicorn.
-5. It combines the losses and calls `step()` to propagate the changes back to both the context and character info.
-6. Finally, it asserts that:
-   - The context has been updated to reflect the sitting pose.
-   - The character info has been updated to correct the species to Alicorn.
+1. `test_pose_module` function:
+   - It sets up a PoseModule with a reasoning LLM.
+   - It creates input variables for character info and context.
+   - It generates a pose using the module and asserts the output structure and content.
+   - It applies two losses:
+     - One to change the pose from standing to sitting.
+     - Another to correct the character's species from Unicorn to Alicorn.
+   - It combines the losses and calls `step()` to propagate the changes back to both the context and character info.
+   - Finally, it asserts that:
+     - The context has been updated to reflect the sitting pose.
+     - The character info has been updated to correct the species to Alicorn.
 
-When contributing a new module, create a similar test file in the `tests/contributions` folder. Make sure to test backpropagation for all relevant input variables.
+2. `test_pose_module_state_dict` function:
+   - It creates an original PoseModule with a specific name.
+   - It saves the state dictionary of the original module.
+   - It creates a new PoseModule instance by loading the saved state dictionary.
+   - It asserts that the restored module has the same name as the original.
+
+When contributing a new module, create a similar test file in the `tests/contributions` folder. Make sure to test the main functionality, backpropagation for all relevant input variables, and saving/restoring the module state. If your module defines any new HorseVariables, include tests for saving and restoring those variables as well.

@@ -3,8 +3,12 @@ from typing import AsyncGenerator
 
 from pydantic import BaseModel
 
-from horsona.autodiff.basic import (GradContext, HorseModule, HorseVariable,
-                                    horsefunction)
+from horsona.autodiff.basic import (
+    GradContext,
+    HorseModule,
+    HorseVariable,
+    horsefunction,
+)
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 
@@ -57,10 +61,10 @@ class PoseModule(HorseModule):
                     "Identify possible causes of the ERRATA in the CONTEXT and suggest a correction. "
                     "Don't change anything other than what's specifed in the ERRATA. "
                     "Only specify causes and suggestions for the CONTEXT."
-                )
+                ),
             )
             grad_context[context].append(context_errata)
-        
+
         if character_info in grad_context:
             character_info_errata = await self.llm.query_block(
                 "text",
@@ -72,6 +76,6 @@ class PoseModule(HorseModule):
                     "Identify possible causes of the ERRATA in the CHARACTER and suggest a correction. "
                     "Don't change anything other than what's specifed in the ERRATA. "
                     "Only specify causes and suggestions for the CHARACTER."
-                )
+                ),
             )
             grad_context[character_info].append(character_info_errata)
