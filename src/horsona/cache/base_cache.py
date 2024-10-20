@@ -7,7 +7,7 @@ S = TypeVar("S", bound=HorseVariable)
 Q = TypeVar("Q", bound=HorseVariable)
 
 
-class BaseCache(Generic[S, Q], HorseData, ABC):
+class BaseCache(ABC, Generic[S, Q]):
     """
     An abstract base class for a cache module in the Horse framework.
 
@@ -40,8 +40,6 @@ class BaseCache(Generic[S, Q], HorseData, ABC):
         >>> updated_cache = await cache.load("new_query")
         >>> synced_cache = await cache.sync()
     """
-
-    context: S
 
     @abstractmethod
     async def load(self, query: Q, **kwargs) -> S:

@@ -16,13 +16,13 @@ async def test_variable(reasoning_llm):
     input_text = Value("Text", "Test Value", reasoning_llm)
     saved = input_text.state_dict()
     print(saved)
-    restored_text = Value.load_state_dict(saved, args={"updater_llm": reasoning_llm})
+    restored_text = Value.load_state_dict(saved, args={"llm": reasoning_llm})
     print(restored_text.datatype, restored_text.value)
     assert restored_text.value == "Test Value"
 
     input_text = Value("Name", PonyName(name="Celestia"), reasoning_llm)
     saved = input_text.state_dict()
-    restored_text = Value.load_state_dict(saved, args={"updater_llm": reasoning_llm})
+    restored_text = Value.load_state_dict(saved, args={"llm": reasoning_llm})
     assert restored_text.value.name == "Celestia"
 
 

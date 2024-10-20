@@ -10,7 +10,7 @@ from horsona.autodiff.basic import (
     horsefunction,
 )
 from horsona.autodiff.variables import Value
-from horsona.cache.db_cache import DatabaseCache, DatabaseValue
+from horsona.cache.db_cache import DatabaseCache, DictValue
 from horsona.database.base_database import DatabaseInsertGradient, DatabaseTextGradient
 from horsona.llm.base_engine import AsyncLLMEngine
 
@@ -70,7 +70,7 @@ class ReaderModule(HorseModule):
 
     async def create_context(
         self,
-        database_context: DatabaseValue,
+        database_context: DictValue,
         buffer_context: HorseVariable,
         state_context: Value,
     ) -> ReadContext:

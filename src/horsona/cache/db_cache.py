@@ -1,7 +1,7 @@
 from typing import AsyncGenerator, Type
 
 from horsona.autodiff.basic import GradContext, horsefunction
-from horsona.autodiff.variables import DatabaseValue, Value
+from horsona.autodiff.variables import DictValue, Value
 from horsona.cache.base_cache import BaseCache
 from horsona.database.base_database import (
     Database,
@@ -12,19 +12,29 @@ from horsona.database.base_database import (
 from horsona.llm.base_engine import AsyncLLMEngine
 
 
-class DatabaseCache(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
+class DatabaseCache(DictValue, BaseCache[DictValue, Value[str]]):
     def __init__(
         self,
         llm: AsyncLLMEngine,
         database: Database,
         cache_size: int,
-        data=None,
+        value=None,
         db_query_args={},
         **kwargs,
     ):
         BaseCache.__init__(self)
-        DatabaseValue.__init__(self, data=data, **kwargs)
-        self.llm = llm
+
+        super_kwargs = kwargs.copy()
+        datatype = super_kwargs.pop("datatype", "Database cache")
+        print("kwargs", kwargs)
+        DictValue.__init__(
+            self,
+            datatype,
+            value,
+            llm,
+            **super_kwargs,
+        )
+
         self.database: Database = database
         self.cache_size = cache_size
         self.db_query_args = db_query_args
@@ -35,7 +45,7 @@ class DatabaseCache(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
             raise ValueError("Query must be a string")
 
         result = await self.database.query(query.value, **self.db_query_args)
-        new_data = self.data.copy()
+        new_data = self.value.copy()
 
         for key, value in result.items():
             if key in new_data:
@@ -50,7 +60,7 @@ class DatabaseCache(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
             llm=self.llm,
             database=self.database,
             cache_size=self.cache_size,
-            data=new_data,
+            value=new_data,
             predecessors=[self, query, self.database],
         )
 
@@ -71,7 +81,7 @@ class DatabaseCache(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
 
     @horsefunction
     async def sync(self) -> AsyncGenerator["DatabaseCache", GradContext]:
-        new_data = self.data.copy()
+        new_data = self.value.copy()
 
         for key in self.keys():
             value = await self.database.query(key, **self.db_query_args)
@@ -81,7 +91,7 @@ class DatabaseCache(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
             llm=self.llm,
             database=self.database,
             cache_size=self.cache_size,
-            data=new_data,
+            value=new_data,
             predecessors=[self, self.database],
         )
 

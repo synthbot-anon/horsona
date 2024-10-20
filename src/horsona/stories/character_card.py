@@ -4,7 +4,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from horsona.autodiff.basic import HorseVariable
-from horsona.autodiff.variables import DatabaseValue, Value
+from horsona.autodiff.variables import DictValue, Value
 from horsona.cache.base_cache import BaseCache
 from horsona.llm.base_engine import AsyncLLMEngine
 
@@ -16,11 +16,14 @@ class CharacterInfo(BaseModel):
     new_quotes: Optional[list[str]] = None
 
 
-class CharacterCardContext(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
+class CharacterCardContext(DictValue, BaseCache[DictValue, Value[str]]):
     def __init__(self, llm: AsyncLLMEngine, **kwargs):
         # super().__init__(Value("Character info", {}))
         BaseCache.__init__(self)
-        DatabaseValue.__init__(self, data={}, **kwargs)
+        super_kwargs = kwargs.copy()
+        datatype = super_kwargs.pop("datatype", "Character card")
+        value = super_kwargs.pop("value", {})
+        DictValue.__init__(self, datatype, value, llm, **kwargs)
         self.llm = llm
 
     async def _update_character(
@@ -31,7 +34,7 @@ class CharacterCardContext(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
     ) -> None:
         new_info = {}
 
-        if name not in self.data:
+        if name not in self:
             current_info = new_info[name] = {
                 "name": name,
                 "synopsis": "unknown",
@@ -40,7 +43,7 @@ class CharacterCardContext(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
                 "quotes": [],
             }
         else:
-            current_info = self.data[name]
+            current_info = self[name]
 
         updates = await self.llm.query_object(
             CharacterInfo,
@@ -85,11 +88,11 @@ class CharacterCardContext(DatabaseValue, BaseCache[DatabaseValue, Value[str]]):
             ]
         )
 
-        current_info = self.data.copy()
+        current_info = self.value.copy()
         for update in updates:
             current_info.update(update)
 
-        self.data = current_info
+        self.value = current_info
 
         return self
 
