@@ -1,7 +1,7 @@
 import pytest
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
-from horsona.contributions.sample.pose import PoseDescription, PoseModule
+from horsona.character.pose import PoseDescription, PoseModule
 from horsona.llm.base_engine import AsyncLLMEngine
 
 
