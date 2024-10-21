@@ -15,3 +15,11 @@ async def test_chat_engine(reasoning_llm: AsyncLLMEngine):
     )
 
     assert response.name == "Celestia"
+
+
+@pytest.mark.asyncio
+async def test_load(reasoning_llm: AsyncLLMEngine):
+    state_dict = reasoning_llm.state_dict()
+    restored = AsyncLLMEngine.load_state_dict(state_dict)
+
+    assert isinstance(restored, type(reasoning_llm))

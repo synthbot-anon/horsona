@@ -4,8 +4,8 @@ from horsona.index.embedding_model import EmbeddingModel
 
 
 class OpenAIEmbeddingModel(EmbeddingModel):
-    def __init__(self, model: str, **kwargs):
-        super().__init__()
+    def __init__(self, model: str, name=None, **kwargs):
+        super().__init__(name=name)
         self.model = model
         self.kwargs = kwargs
 

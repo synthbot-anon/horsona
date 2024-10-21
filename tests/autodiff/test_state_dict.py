@@ -15,14 +15,12 @@ class PonyName(BaseModel):
 async def test_variable(reasoning_llm):
     input_text = Value("Text", "Test Value", reasoning_llm)
     saved = input_text.state_dict()
-    print(saved)
-    restored_text = Value.load_state_dict(saved, args={"llm": reasoning_llm})
-    print(restored_text.datatype, restored_text.value)
+    restored_text = Value.load_state_dict(saved)
     assert restored_text.value == "Test Value"
 
     input_text = Value("Name", PonyName(name="Celestia"), reasoning_llm)
     saved = input_text.state_dict()
-    restored_text = Value.load_state_dict(saved, args={"llm": reasoning_llm})
+    restored_text = Value.load_state_dict(saved)
     assert restored_text.value.name == "Celestia"
 
 
@@ -41,12 +39,7 @@ class SampleModule(HorseModule):
 async def test_module(reasoning_llm):
     module = SampleModule("Test Value")
     saved = module.state_dict()
-    restored_module = SampleModule.load_state_dict(
-        saved,
-        args={
-            "reasoning_llm": reasoning_llm,
-        },
-    )
+    restored_module = SampleModule.load_state_dict(saved)
     assert restored_module.input_text.value == "Test Value"
 
 
@@ -77,28 +70,13 @@ async def test_db_cache(reasoning_llm, query_index):
     cache = DatabaseCache(reasoning_llm, database, 3)
 
     saved = cache.state_dict()
-    cache = DatabaseCache.load_state_dict(
-        saved,
-        args={
-            "llm": reasoning_llm,
-            "database": database,
-        },
-    )
+    cache = DatabaseCache.load_state_dict(saved)
     context = await cache.load(Value("Key", "Test Key1"))
     assert "Test Key1" in context
     assert "Test Key2" not in context
 
     saved = context.state_dict()
-    cache = DatabaseCache.load_state_dict(
-        saved,
-        args={
-            "llm": reasoning_llm,
-            "database": {
-                "llm": reasoning_llm,
-                "index": query_index,
-            },
-        },
-    )
+    cache = DatabaseCache.load_state_dict(saved)
     context = await cache.load(Value("Key", "Test Key2"))
     assert "Test Key1" in context
     assert "Test Key2" in context

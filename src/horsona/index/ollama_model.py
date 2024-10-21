@@ -4,8 +4,8 @@ from horsona.index.embedding_model import EmbeddingModel
 
 
 class OllamaEmbeddingModel(EmbeddingModel):
-    def __init__(self, model, url=None):
-        super().__init__()
+    def __init__(self, model, url=None, name=None):
+        super().__init__(name=name)
         self.model = model
         self.url = url
 

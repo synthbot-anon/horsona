@@ -57,8 +57,6 @@ async def test_pose_module_state_dict(reasoning_llm: AsyncLLMEngine):
     saved_state = original_module.state_dict()
 
     # Reload PoseModule from state dict
-    restored_module = PoseModule.load_state_dict(
-        saved_state, args={"llm": reasoning_llm}
-    )
+    restored_module = PoseModule.load_state_dict(saved_state)
 
     assert restored_module.name == "pose_generator"

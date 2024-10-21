@@ -24,7 +24,6 @@ SAMPLE_DATA = {
 @pytest.mark.asyncio
 async def test_update_database(reasoning_llm, query_index):
     database = EmbeddingDatabase(reasoning_llm, query_index)
-    print(database)
     await database.insert(SAMPLE_DATA)
 
     cache = DatabaseCache(reasoning_llm, database, 5, name="test_db")

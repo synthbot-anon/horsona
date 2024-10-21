@@ -26,7 +26,6 @@ class DatabaseCache(DictValue, BaseCache[DictValue, Value[str]]):
 
         super_kwargs = kwargs.copy()
         datatype = super_kwargs.pop("datatype", "Database cache")
-        print("kwargs", kwargs)
         DictValue.__init__(
             self,
             datatype,

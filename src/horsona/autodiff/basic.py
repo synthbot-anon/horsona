@@ -251,7 +251,7 @@ class HorseModule(HorseVariable, ABC):
     """Abstract module class with parameters akin to PyTorch's nn.Module."""
 
 
-def load_state_dict(state_dict, args, debug_prefix=[]):
+def load_state_dict(state_dict, args={}, debug_prefix=[]):
     if not isinstance(args, dict):
         return args
 

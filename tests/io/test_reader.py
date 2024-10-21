@@ -47,15 +47,7 @@ async def test_reader(reasoning_llm, query_index: HnswEmbeddingIndex):
         await read_context_loss.step([setting_db])
 
     context_state = read_context.state_dict()
-    read_context = ReadContext.load_state_dict(
-        context_state,
-        args={
-            "database_context": {
-                "llm": reasoning_llm,
-                "database": setting_db,
-            }
-        },
-    )
+    read_context = ReadContext.load_state_dict(context_state)
 
     assert len(read_context.buffer_context) > 0
     assert len(read_context.database_context) > 0

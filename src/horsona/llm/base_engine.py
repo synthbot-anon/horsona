@@ -1,18 +1,88 @@
 import asyncio
 import functools
+import json
 import time
 from abc import ABC, abstractmethod
 from typing import Type, TypeVar, Union
 
 from pydantic import BaseModel
 
-__all__ = ["AsyncLLMEngine"]
+from horsona.autodiff.basic import HorseData
+
+__all__ = ["AsyncLLMEngine", "LLM_CONFIG_PATH"]
+
+LLM_CONFIG_PATH = "llm_config.json"
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
+engines = {}
+_loaded_engines = False
 
-class CallLimit:
+
+def load_engines() -> dict[str, "AsyncLLMEngine"]:
+    global engines, _loaded_engines
+
+    if _loaded_engines:
+        return
+
+    from horsona.llm.anthropic_engine import AsyncAnthropicEngine
+    from horsona.llm.cerebras_engine import AsyncCerebrasEngine
+    from horsona.llm.fireworks_engine import AsyncFireworksEngine
+    from horsona.llm.groq_engine import AsyncGroqEngine
+    from horsona.llm.multi_engine import create_multi_engine
+    from horsona.llm.openai_engine import AsyncOpenAIEngine
+    from horsona.llm.together_engine import AsyncTogetherEngine
+
+    with open(LLM_CONFIG_PATH, "r") as f:
+        config = json.load(f)
+
+    engines.clear()
+
+    for item in config:
+        for name, params in item.items():
+            engine_type = params["type"]
+            model = params.get("model")
+            rate_limits = params.get("rate_limits", [])
+
+            if engine_type == "AsyncCerebrasEngine":
+                engines[name] = AsyncCerebrasEngine(
+                    model=model,
+                    rate_limits=rate_limits,
+                    name=name,
+                )
+            elif engine_type == "AsyncGroqEngine":
+                engines[name] = AsyncGroqEngine(
+                    model=model, rate_limits=rate_limits, name=name
+                )
+            elif engine_type == "AsyncFireworksEngine":
+                engines[name] = AsyncFireworksEngine(
+                    model=model, rate_limits=rate_limits, name=name
+                )
+            elif engine_type == "AsyncOpenAIEngine":
+                engines[name] = AsyncOpenAIEngine(
+                    model=model, rate_limits=rate_limits, name=name
+                )
+            elif engine_type == "AsyncAnthropicEngine":
+                engines[name] = AsyncAnthropicEngine(
+                    model=model, rate_limits=rate_limits, name=name
+                )
+            elif engine_type == "AsyncTogetherEngine":
+                engines[name] = AsyncTogetherEngine(
+                    model=model, rate_limits=rate_limits, name=name
+                )
+            elif engine_type == "MultiEngine":
+                sub_engines = [
+                    engines[engine_name] for engine_name in params["engines"]
+                ]
+                engines[name] = create_multi_engine(*sub_engines, name=name)
+            else:
+                raise ValueError(f"Unknown engine type: {engine_type}")
+
+    _loaded_engines = True
+
+
+class CallLimit(HorseData):
     def __init__(self, limit: float, interval: float):
         assert limit is not None and limit > 0, "Call limit must be a positive float"
         assert interval >= 0, "Rate interval must be a non-negative float"
@@ -41,7 +111,7 @@ class CallLimit:
             await asyncio.sleep(next_allowed - now)
 
 
-class TokenLimit:
+class TokenLimit(HorseData):
     def __init__(self, limit: float, interval: float):
         assert limit is not None and limit > 0, "Token limit must be a positive float"
         assert interval >= 0, "Rate interval must be a non-negative float"
@@ -75,8 +145,9 @@ class TokenLimit:
             await asyncio.sleep(next_allowed - now)
 
 
-class RateLimits:
+class RateLimits(HorseData):
     def __init__(self, limits: list[dict]):
+        self.limits = limits
         self.call_limits: list[CallLimit] = []
         self.token_limits: list[TokenLimit] = []
         for rate_limit in limits:
@@ -128,7 +199,7 @@ class CallLimitException(Exception):
     pass
 
 
-class AsyncLLMEngine(ABC):
+class AsyncLLMEngine(HorseData, ABC):
     """
     A class representing an engine for interacting with Language Learning Models
     (LLMs).
@@ -152,13 +223,15 @@ class AsyncLLMEngine(ABC):
         Use `query_block` to get responses for markdown block types.
     """
 
-    def __init__(self, rate_limits=[], **kwargs):
+    def __init__(self, rate_limits=[], name=None, **kwargs):
         """
         Initialize the AsyncLLMEngine.
 
         """
+        super().__init__()
         self.rate_limit = RateLimits(rate_limits)
         self.kwargs = kwargs
+        self.name = name
 
     def __new__(cls, *args, **kwargs):
         self = super().__new__(cls)
@@ -174,6 +247,30 @@ class AsyncLLMEngine(ABC):
 
         self.query = wrapped_query
         return self
+
+    def state_dict(self, **override):
+        if self.name is not None:
+            if override:
+                raise ValueError(
+                    "Cannot override fields when saving an AsyncLLMEngine by name"
+                )
+            return {
+                "name": self.name,
+            }
+        else:
+            return super().state_dict(**override)
+
+    @classmethod
+    def load_state_dict(cls, state_dict, args={}, debug_prefix=[]):
+        if isinstance(state_dict["name"], str):
+            if args:
+                raise ValueError(
+                    "Cannot override fields when creating an AsyncLLMEngine by name"
+                )
+            load_engines()
+            return engines[state_dict["name"]]
+        else:
+            return super().load_state_dict(state_dict, args, debug_prefix)
 
     @abstractmethod
     async def query(self, **kwargs):

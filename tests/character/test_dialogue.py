@@ -1,5 +1,4 @@
 import pytest
-
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
 from horsona.character.dialogue import DialogueModule, DialogueResponse
@@ -62,8 +61,6 @@ async def test_dialogue_module_state_dict(reasoning_llm: AsyncLLMEngine):
     saved_state = original_module.state_dict()
 
     # Reload DialogueModule from state dict
-    restored_module = DialogueModule.load_state_dict(
-        saved_state, args={"llm": reasoning_llm}
-    )
+    restored_module = DialogueModule.load_state_dict(saved_state)
 
     assert restored_module.name == "dialogue_generator"

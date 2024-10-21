@@ -1,10 +1,11 @@
 import asyncio
 from typing import AsyncGenerator
 
+from pydantic import BaseModel
+
 from horsona.autodiff.basic import GradContext, HorseModule, horsefunction
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
-from pydantic import BaseModel
 
 
 class DialogueResponse(BaseModel):
