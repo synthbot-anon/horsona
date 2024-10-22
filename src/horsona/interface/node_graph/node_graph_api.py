@@ -9,23 +9,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from horsona.autodiff.basic import HorseData
 from pydantic import BaseModel
 
-app = FastAPI()
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-)
-
-
-@app.get("/")
-async def root():
-    return {"message": "Welcome to the Node Graph API"}
-
-
 # In-memory storage for sessions and resources
 sessions = {}
 resources = {}
@@ -83,19 +66,48 @@ class NodeGraphAPI:
             r"^(" + "|".join([r"horsona\..*", *extra_modules]) + ")$"
         )
 
-    @app.post("/sessions")
+        self.app = FastAPI()
+        # Add CORS middleware
+        self.app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # Allows all origins
+            allow_credentials=True,
+            allow_methods=["*"],  # Allows all methods
+            allow_headers=["*"],  # Allows all headers
+        )
+
+        # Define routes
+        self.app.get("/")(self.root)
+        self.app.post("/sessions")(self.create_session)
+        self.app.get("/sessions/{session_id}/resources")(self.list_resources)
+        self.app.delete("/sessions/{session_id}")(self.delete_session)
+        self.app.get("/sessions/{session_id}/resources/{resource_id}")(
+            self.get_resource
+        )
+        self.app.post("/sessions/{session_id}/resources")(self.post_resource)
+        self.app.delete("/sessions/{session_id}/resources/{resource_id}")(
+            self.delete_resource
+        )
+        self.app.get("/docs", include_in_schema=False)(self.get_docs)
+
+    async def get_docs(self):
+        return self.app.get_swagger_ui_html(
+            openapi_url="/openapi.json", title="API Docs"
+        )
+
+    async def root(self):
+        return {"message": "Welcome to the Node Graph API"}
+
     async def create_session(self):
         session_id = str(uuid4())
         self.sessions[session_id] = Session(id=session_id)
         return {"session_id": session_id, "message": "Session created successfully"}
 
-    @app.get("/sessions/{session_id}/resources")
     async def list_resources(self, session_id: str):
         if session_id not in self.sessions:
             raise HTTPException(status_code=404, detail="Session not found")
         return list(self.sessions[session_id].resources.values())
 
-    @app.delete("/sessions/{session_id}")
     async def delete_session(self, session_id: str):
         if session_id not in self.sessions:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -104,7 +116,6 @@ class NodeGraphAPI:
             "message": f"Session {session_id} and all its resources deleted successfully"
         }
 
-    @app.get("/sessions/{session_id}/resources/{resource_id}")
     async def get_resource(self, session_id: str, resource_id: int):
         if session_id not in self.sessions:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -122,7 +133,6 @@ class NodeGraphAPI:
             "result": node.processed_result,
         }
 
-    @app.post("/sessions/{session_id}/resources")
     async def post_resource(
         self,
         session_id: str,
@@ -265,7 +275,6 @@ class NodeGraphAPI:
             "result": processed_result,
         }
 
-    @app.delete("/sessions/{session_id}/resources/{resource_id}")
     async def delete_resource(self, session_id: str, resource_id: str):
         if session_id not in self.sessions:
             raise HTTPException(status_code=404, detail="Session not found")
