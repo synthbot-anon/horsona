@@ -20,6 +20,8 @@ openai = "^1.45.1"
 aiofiles = "^24.1.0"
 ollama = "^0.3.3"
 chroma-hnswlib = "^0.7.6"
+fastapi = "^0.115.2"
+uvicorn = "^0.32.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.2"
