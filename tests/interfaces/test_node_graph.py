@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import pytest
@@ -148,3 +149,74 @@ async def test_allowed_modules():
         )
     assert exc_info.value.status_code == 404
     assert "Module not found" in str(exc_info.value.detail)
+
+
+# Test session timeout and keep_alive
+@pytest.mark.asyncio
+async def test_session_timeout_and_keep_alive():
+    # Create a NodeGraphAPI instance with a short timeout
+    short_timeout_api = NodeGraphAPI(session_timeout=0.5, session_cleanup_interval=0.25)
+
+    # Start the API to initiate the cleanup task
+    await short_timeout_api.start()
+
+    # Create a session
+    session_response = await short_timeout_api.create_session()
+    session_id = session_response["session_id"]
+
+    # Verify the session is active by posting a resource
+    result = await short_timeout_api.post_resource(
+        session_id=session_id,
+        module="horsona.autodiff.variables",
+        class_name="Value",
+        function_name="__init__",
+        kwargs={
+            "datatype": Argument(type="str", value="test"),
+            "value": Argument(type="float", value=1.0),
+        },
+    )
+    assert "error" not in result
+
+    # Wait for the session to timeout
+    await asyncio.sleep(0.75)
+
+    # Attempt to use the timed-out session
+    with pytest.raises(HTTPException) as exc_info:
+        await short_timeout_api.post_resource(
+            session_id=session_id,
+            module="horsona.autodiff.variables",
+            class_name="Value",
+            function_name="__init__",
+            kwargs={
+                "datatype": Argument(type="str", value="test"),
+                "value": Argument(type="float", value=2.0),
+            },
+        )
+
+    assert exc_info.value.status_code == 404
+    assert "Session not found" in str(exc_info.value.detail)
+
+    # Create a new session to test keep_alive
+    session_response = await short_timeout_api.create_session()
+    session_id = session_response["session_id"]
+
+    # Keep the session alive
+    for _ in range(3):
+        await asyncio.sleep(0.35)
+        await short_timeout_api.keep_alive(session_id)
+
+    # Verify the session is still active after keep_alive calls
+    result = await short_timeout_api.post_resource(
+        session_id=session_id,
+        module="horsona.autodiff.variables",
+        class_name="Value",
+        function_name="__init__",
+        kwargs={
+            "datatype": Argument(type="str", value="test"),
+            "value": Argument(type="float", value=3.0),
+        },
+    )
+    assert "error" not in result
+
+    # Stop the API to cancel the cleanup task
+    await short_timeout_api.stop()
