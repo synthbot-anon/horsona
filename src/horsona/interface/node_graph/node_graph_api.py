@@ -144,6 +144,9 @@ class NodeGraphAPI:
         if session_id not in self.sessions:
             raise HTTPException(status_code=404, detail="Session not found")
 
+        if not re.match(self.allowed_modules, module):
+            raise HTTPException(status_code=404, detail="Module not found")
+
         processed_kwargs = {}
         errors = []
         for key, arg in kwargs.items():
@@ -269,9 +272,26 @@ class NodeGraphAPI:
 
             self.sessions[session_id].resources[node_id] = node
             self.sessions[session_id].resource_to_node[result] = node
+        elif isinstance(result, (int, float, str, bool, list, dict, tuple, set)):
+            processed_result = Argument(type=type(result).__name__, value=result)
+            node = None
+        else:
+            node_id = len(self.sessions[session_id].resources) + 1
+            processed_result = Argument(type="node", value=node_id)
+            node = Node(
+                id=node_id,
+                module_name=module,
+                class_name=class_name,
+                function_name=function_name,
+                kwargs=kwargs,
+                result=result,
+                processed_result=processed_result,
+            )
+            self.sessions[session_id].resources[node_id] = node
+            self.sessions[session_id].resource_to_node[result] = node
 
         return {
-            "id": node.id,
+            "id": node.id if node is not None else None,
             "result": processed_result,
         }
 
