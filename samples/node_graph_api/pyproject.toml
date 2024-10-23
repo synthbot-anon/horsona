@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "node_graph_api"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+  "Synthbot Anon <synthbot.anon@gmail.com>"
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+horsona = { git = "https://github.com/synthbot-anon/horsona", rev = "1a222f1912a7186a7c9a617cfdaa4e2bc71929ea" }
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
