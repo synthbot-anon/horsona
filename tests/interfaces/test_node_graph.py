@@ -3,7 +3,8 @@ import os
 import pytest
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from horsona.interface.node_graph.node_graph_api import Argument, NodeGraphAPI
+from horsona.interface.node_graph import NodeGraphAPI
+from horsona.interface.node_graph.node_graph_api import Argument
 
 # Load environment variables from .env file
 load_dotenv()
@@ -57,7 +58,7 @@ async def test_node_graph():
     assert "error" not in llm_api_result
 
     try:
-        error_result = await node_graph_api.post_resource(
+        await node_graph_api.post_resource(
             session_id=session_id,
             module="invalid_module",
             function_name="invalid_function",
