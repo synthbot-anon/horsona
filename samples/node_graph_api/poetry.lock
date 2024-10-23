@@ -696,8 +696,8 @@ uvicorn = "^0.32.0"
 [package.source]
 type = "git"
 url = "https://github.com/synthbot-anon/horsona"
-reference = "1a222f1912a7186a7c9a617cfdaa4e2bc71929ea"
-resolved_reference = "1a222f1912a7186a7c9a617cfdaa4e2bc71929ea"
+reference = "1a95d16985f4356d9b87d69ecbe6edfeb6c9fdde"
+resolved_reference = "1a95d16985f4356d9b87d69ecbe6edfeb6c9fdde"
 
 [[package]]
 name = "httpcore"
@@ -2053,4 +2053,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "b89df0f62a181381c4158c635d0f01c86cacd84bf7b3af9037c6d9ab4532b121"
+content-hash = "9237693bcccb2565c6c8d2a87daea0723ead9aca420a1ddcf125f48cdeba4044"
