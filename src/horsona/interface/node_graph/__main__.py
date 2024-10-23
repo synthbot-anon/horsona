@@ -2,8 +2,6 @@ import asyncio
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.openapi.docs import get_swagger_ui_html
 
 from .node_graph_api import NodeGraphAPI
 
