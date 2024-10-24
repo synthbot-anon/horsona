@@ -59,10 +59,14 @@ Here's an example of how to use curl commands to run the `hello_world` function 
 
    ```bash
    curl -X 'POST' \
-     "http://localhost:8000/api/sessions/$SESSION_ID/resources?module=node_graph_api.exposed_module&function_name=hello_world" \
+     'http://localhost:8000/api/sessions/$SESSION_ID/resources' \
      -H 'accept: application/json' \
      -H 'Content-Type: application/json' \
-     -d '{}'
+     -d '{
+       "module_name": "node_graph_api.exposed_module",
+       "function_name": "hello_world",
+       "kwargs": {}
+     }'
    ```
 
    This should return a response containing the result "Hello, world!".
