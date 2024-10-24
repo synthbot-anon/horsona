@@ -1,34 +1,127 @@
 import asyncio
 import importlib
 import re
+from contextlib import asynccontextmanager
+from http import HTTPStatus
 from time import time
-from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
-from horsona.autodiff.basic import HorseData
-from pydantic import BaseModel
+from fastapi import APIRouter, FastAPI, HTTPException, status
+from horsona.autodiff.basic import HorseData, HorseVariable
+
+from .node_graph_models import *
 
 # In-memory storage for sessions and resources
-sessions = {}
-resources = {}
+_sessions: dict[str, "Session"] = {}
+_session_cleanup_interval = 60
+_session_timeout = 300
+_session_cleanup_task = None
+_allowed_modules = re.compile(r"^(horsona\..*)$")
 
 
-class Node(BaseModel):
+class Resource(BaseModel):
     id: int
     module_name: str
-    class_name: Optional[str] = None
-    function_name: Optional[str] = None
-    kwargs: Optional[Dict[str, Any]] = None
-    result: Any
-    processed_result: Dict[str, Any] = None
-    result_node: Optional["Node"] = None
+    class_name: str
+    result_obj: Any
+    result_dict: dict[str, Argument] = None
 
-    def __init__(self, **data):
-        super().__init__(**data)
+
+class Session(BaseModel):
+    id: str
+    resource_id_to_node: dict[int, Resource] = {}
+    resource_obj_to_node: dict[Any, Resource] = {}
+    last_active: float
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await start_session_cleanup_task()
+    yield
+    await stop_session_cleanup_task()
+
+
+router = APIRouter(lifespan=lifespan)
+
+
+def configure(
+    session_timeout: float = 300,
+    session_cleanup_interval: float = 60,
+    extra_modules: list[str] = [],
+):
+    """
+    Initialize the NodeGraphAPI.
+
+    Args:
+        session_timeout (float): The time in seconds after which an inactive session will be removed. Default is 300 seconds.
+        session_cleanup_interval (float): The interval in seconds between session cleanup checks. Default is 60 seconds.
+        extra_modules (List[str]): A list of additional module names to allow. Default is an empty list.
+    """
+    global \
+        _sessions, \
+        _session_timeout, \
+        _session_cleanup_interval, \
+        _session_cleanup_task, \
+        _allowed_modules
+
+    _sessions = {}
+    _session_timeout = session_timeout
+    _session_cleanup_interval = session_cleanup_interval
+    _allowed_modules = re.compile(
+        r"^(" + "|".join([r"horsona\..*", *extra_modules]) + ")$"
+    )
+
+    if _session_cleanup_task is not None:
+        asyncio.create_task(reset_session_cleanup_task())
+
+
+async def start_session_cleanup_task():
+    """
+    Start the NodeGraphAPI by initializing the session cleanup task.
+    """
+    global _session_cleanup_task
+
+    _session_cleanup_task = asyncio.create_task(session_cleanup_task())
+
+
+async def stop_session_cleanup_task():
+    """
+    Stop the NodeGraphAPI by cancelling the session cleanup task.
+    """
+    if _session_cleanup_task is not None:
+        _session_cleanup_task.cancel()
+
+
+async def reset_session_cleanup_task():
+    await stop_session_cleanup_task()
+    await start_session_cleanup_task()
+
+
+async def session_cleanup_task():
+    """
+    Periodically clean up timed-out sessions.
+    """
+    while True:
+        # Wait for the next cleanup
+        await asyncio.sleep(_session_cleanup_interval)
+
+        current_time = time()
+        sessions_to_remove = [
+            session_id
+            for session_id, session in _sessions.items()
+            if current_time - session.last_active > _session_timeout
+        ]
+
+        for session_id in sessions_to_remove:
+            del _sessions[session_id]
 
 
 async def execute(module_name, class_name, function_name, kwargs):
+    if not re.match(_allowed_modules, module_name):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Module not found"
+        )
+
     module = importlib.import_module(module_name)
     if class_name:
         class_ = getattr(module, class_name)
@@ -39,425 +132,399 @@ async def execute(module_name, class_name, function_name, kwargs):
     else:
         function = getattr(module, function_name)
 
-    if asyncio.iscoroutinefunction(function):
-        result = await function(**kwargs)
-    else:
-        result = function(**kwargs)
+    try:
+        if asyncio.iscoroutinefunction(function):
+            result = await function(**kwargs)
+        else:
+            result = function(**kwargs)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Failed to execute node",
+                "module_name": module_name,
+                "class_name": class_name,
+                "function_name": function_name,
+                "message": str(e),
+            },
+        )
 
     return result
 
 
-class Session(BaseModel):
-    id: str
-    resources: dict[int, Node] = {}
-    resource_to_node: dict[Any, Node] = {}
-    last_active: float
+@router.get("/sessions", response_model=SessionListResponse)
+async def list_sessions() -> SessionListResponse:
+    """
+    Get the list of running sessions.
 
-
-class Argument(BaseModel):
-    type: str
-    value: Any
-
-
-class NodeGraphAPI:
-    def __init__(
-        self,
-        session_timeout: float = 300,
-        session_cleanup_interval: float = 60,
-        extra_modules: List[str] = [],
-    ):
-        """
-        Initialize the NodeGraphAPI.
-
-        Args:
-            session_timeout (float): The time in seconds after which an inactive session will be removed. Default is 300 seconds.
-            session_cleanup_interval (float): The interval in seconds between session cleanup checks. Default is 60 seconds.
-            extra_modules (List[str]): A list of additional module names to allow. Default is an empty list.
-        """
-        self.sessions = {}
-        self.resources = {}
-        self.session_timeout = session_timeout
-        self.session_cleanup_interval = session_cleanup_interval
-        self.session_cleanup_task = None
-        self.allowed_modules = re.compile(
-            r"^(" + "|".join([r"horsona\..*", *extra_modules]) + ")$"
-        )
-
-        self.app = FastAPI()
-
-        # Define routes
-        self.app.get("/")(self.root)
-        self.app.post("/sessions")(self.create_session)
-        self.app.post("/sessions/{session_id}/keep_alive")(self.keep_alive)
-        self.app.get("/sessions/{session_id}/resources")(self.list_resources)
-        self.app.delete("/sessions/{session_id}")(self.delete_session)
-        self.app.get("/sessions/{session_id}/resources/{resource_id}")(
-            self.get_resource
-        )
-        self.app.post("/sessions/{session_id}/resources")(self.post_resource)
-        self.app.delete("/sessions/{session_id}/resources/{resource_id}")(
-            self.delete_resource
-        )
-        self.app.get("/docs", include_in_schema=False)(self.get_docs)
-
-    async def start(self):
-        """
-        Start the NodeGraphAPI by initializing the session cleanup task.
-        """
-        self.session_cleanup_task = asyncio.create_task(self._cleanup_sessions())
-
-    async def stop(self):
-        """
-        Stop the NodeGraphAPI by cancelling the session cleanup task.
-        """
-        if self.session_cleanup_task:
-            self.session_cleanup_task.cancel()
-
-    async def _cleanup_sessions(self):
-        """
-        Periodically clean up timed-out sessions.
-        """
-        while True:
-            current_time = time()
-            sessions_to_remove = [
-                session_id
-                for session_id, session in self.sessions.items()
-                if current_time - session.last_active > self.session_timeout
-            ]
-
-            for session_id in sessions_to_remove:
-                del self.sessions[session_id]
-
-            if sessions_to_remove:
-                print(f"Cleaned up {len(sessions_to_remove)} timed-out sessions")
-
-            # Wait for 60 seconds before the next cleanup
-            await asyncio.sleep(self.session_cleanup_interval)
-
-    async def get_docs(self):
-        """
-        Get the Swagger UI HTML for API documentation.
-
-        Returns:
-            HTMLResponse: The Swagger UI HTML.
-        """
-        return self.app.get_swagger_ui_html(
-            openapi_url="/openapi.json", title="API Docs"
-        )
-
-    async def root(self):
-        """
-        Root endpoint for the API.
-
-        Returns:
-            dict: A welcome message.
-        """
-        return {"message": "Welcome to the Node Graph API"}
-
-    async def create_session(self):
-        """
-        Create a new session.
-
-        Returns:
-            dict: A dictionary containing the new session ID and a success message.
-        """
-        session_id = str(uuid4())
-        self.sessions[session_id] = Session(id=session_id, last_active=time())
-        return {"session_id": session_id, "message": "Session created successfully"}
-
-    async def keep_alive(self, session_id: str):
-        """
-        Keep a session alive by updating its last active time.
-
-        Args:
-            session_id (str): The ID of the session to keep alive.
-
-        Returns:
-            dict: A message confirming the session was kept alive.
-
-        Raises:
-            HTTPException: If the session is not found.
-        """
-        if session_id not in self.sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-        self.sessions[session_id].last_active = time()
-        return {"message": "Session kept alive"}
-
-    async def list_resources(self, session_id: str):
-        """
-        List all resources in a session.
-
-        Args:
-            session_id (str): The ID of the session to list resources from.
-
-        Returns:
-            list: A list of all resources in the session.
-
-        Raises:
-            HTTPException: If the session is not found.
-        """
-        if session_id not in self.sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-        return list(self.sessions[session_id].resources.values())
-
-    async def delete_session(self, session_id: str):
-        """
-        Delete a session and all its resources.
-
-        Args:
-            session_id (str): The ID of the session to delete.
-
-        Returns:
-            dict: A message confirming the session was deleted.
-
-        Raises:
-            HTTPException: If the session is not found.
-        """
-        if session_id not in self.sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-        del self.sessions[session_id]
-        return {
-            "message": f"Session {session_id} and all its resources deleted successfully"
-        }
-
-    async def get_resource(self, session_id: str, resource_id: int):
-        """
-        Get a specific resource from a session.
-
-        Args:
-            session_id (str): The ID of the session containing the resource.
-            resource_id (int): The ID of the resource to retrieve.
-
-        Returns:
-            dict: The details of the requested resource.
-
-        Raises:
-            HTTPException: If the session or resource is not found.
-        """
-        if session_id not in self.sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        await self.keep_alive(session_id)
-
-        if resource_id not in self.sessions[session_id].resources:
-            raise HTTPException(
-                status_code=404, detail="Resource not found in this session"
+    Returns:
+        SessionListResponse: A response object containing the list of active sessions with their IDs, last active times, and remaining TTLs.
+    """
+    current_time = time()
+    active_sessions = []
+    for session_id, session in _sessions.items():
+        last_active = session.last_active
+        remaining_ttl = max(0, _session_timeout - (current_time - last_active))
+        active_sessions.append(
+            SessionInfo(
+                session_id=session_id,
+                last_active=last_active,
+                remaining_ttl=remaining_ttl,
             )
-        node: Node = self.sessions[session_id].resources[resource_id]
+        )
+    return SessionListResponse(sessions=active_sessions)
 
+
+@router.get("/docs")
+async def get_docs():
+    """
+    Get the Swagger UI HTML for API documentation.
+
+    Returns:
+        HTMLResponse: The Swagger UI HTML.
+    """
+    return router.get_swagger_ui_html(openapi_url="/openapi.json", title="API Docs")
+
+
+@router.get("/")
+async def root():
+    """
+    Root endpoint for the API.
+
+    Returns:
+        dict: A welcome message.
+    """
+    return {"message": "Welcome to the Node Graph API"}
+
+
+@router.post("/sessions", response_model=CreateSessionResponse)
+async def create_session() -> CreateSessionResponse:
+    """
+    Create a new session.
+
+    Returns:
+        CreateSessionResponse: An object containing the new session ID and a success message.
+    """
+    session_id = str(uuid4())
+    _sessions[session_id] = Session(id=session_id, last_active=time())
+    return CreateSessionResponse(
+        session_id=session_id, message="Session created successfully"
+    )
+
+
+@router.post("/sessions/{session_id}/keep_alive", response_model=KeepAliveResponse)
+async def keep_alive(request: KeepAliveRequest):
+    """
+    Keep a session alive by updating its last active time.
+
+    Args:
+        session_id (str): The ID of the session to keep alive.
+        request (KeepAliveRequest): The request body containing the session ID.
+
+    Returns:
+        KeepAliveResponse: A response object with a message confirming the session was kept alive.
+
+    Raises:
+        HTTPException: If the session is not found.
+    """
+    if request.session_id not in _sessions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+    _sessions[request.session_id].last_active = time()
+    return KeepAliveResponse(message="Session kept alive")
+
+
+@router.get("/sessions/{session_id}/resources", response_model=ListResourcesResponse)
+async def list_resources(request: ListResourcesRequest):
+    """
+    List all resources in a session.
+
+    Args:
+        session_id (str): The ID of the session to list resources from.
+
+    Returns:
+        ListResourcesResponse: A response object containing a list of all resources in the session.
+
+    Raises:
+        HTTPException: If the session is not found.
+    """
+    if request.session_id not in _sessions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+
+    resources = []
+    for node in _sessions[request.session_id].resource_id_to_node.values():
+        node_id, result_dict = pack_result(request.session_id, node.result_obj)
+        resources.append(
+            ResourceResponse(
+                id=node_id,
+                result=result_dict,
+            )
+        )
+    return ListResourcesResponse(resources=resources)
+
+
+@router.delete("/sessions/{session_id}", response_model=DeleteSessionResponse)
+async def delete_session(session_id: str, request: DeleteSessionRequest):
+    """
+    Delete a session and all its resources.
+
+    Args:
+        session_id (str): The ID of the session to delete.
+        request (DeleteSessionRequest): The request body containing the session ID.
+
+    Returns:
+        DeleteSessionResponse: A message confirming the session was deleted.
+
+    Raises:
+        HTTPException: If the session is not found.
+    """
+    if session_id != request.session_id or session_id not in _sessions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+    del _sessions[session_id]
+    return DeleteSessionResponse(
+        message=f"Session {session_id} and all its resources deleted successfully"
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/resources/{resource_id}", response_model=GetResourceResponse
+)
+async def get_resource(request: GetResourceRequest):
+    """
+    Get a specific resource from a session.
+
+    Args:
+        session_id (str): The ID of the session containing the resource.
+        resource_id (int): The ID of the resource to retrieve.
+
+    Returns:
+        dict: The details of the requested resource.
+
+    Raises:
+        HTTPException: If the session or resource is not found.
+    """
+    if request.session_id not in _sessions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+
+    await keep_alive(request)
+
+    if request.resource_id not in _sessions[request.session_id].resource_id_to_node:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resource not found in this session",
+        )
+
+    node: Resource = _sessions[request.session_id].resource_id_to_node[
+        request.resource_id
+    ]
+    node_id, result_dict = pack_result(request.session_id, node.result_obj)
+
+    return GetResourceResponse(
+        id=node_id,
+        result=result_dict,
+    )
+
+
+class InvalidArgumentException(Exception):
+    def __init__(self, message: dict):
+        self.message = message
+
+
+def unpack_argument(
+    session_id: str, key: list[str], arg: Argument | Any
+) -> dict[str, Any]:
+    if not isinstance(arg, Argument):
+        return arg
+    if arg.type == "node":
+        return _sessions[session_id].resource_id_to_node[arg.value].result_obj
+    elif arg.type in ("str", "float", "int", "bool"):
+        return arg.value
+    elif arg.type == "list":
+        return [
+            unpack_argument(session_id, key + [i], item)
+            for i, item in enumerate(arg.value)
+        ]
+    elif arg.type == "dict":
         return {
-            "id": node.id,
-            "module_name": node.module_name,
-            "class_name": node.class_name,
-            "function_name": node.function_name,
-            "result": node.processed_result,
+            k: unpack_argument(session_id, key + [k], v) for k, v in arg.value.items()
         }
+    elif arg.type == "tuple":
+        return tuple(
+            unpack_argument(session_id, key + [i], item)
+            for i, item in enumerate(arg.value)
+        )
+    elif arg.type == "set":
+        return {
+            unpack_argument(session_id, key + [i], item)
+            for i, item in enumerate(arg.value)
+        }
+    else:
+        raise InvalidArgumentException(
+            {
+                "message": f"Node {arg.value} has invalid argument type: {arg.type}",
+                "key": ".".join(key),
+                "type": arg.type,
+                "value": arg.value,
+            }
+        )
 
-    async def post_resource(
-        self,
-        session_id: str,
-        module: str,
-        function_name: str,
-        class_name: str = None,
-        kwargs: Dict[str, Argument] = {},
-    ):
-        """
-        Create a new resource in a session.
 
-        Args:
-            session_id (str): The ID of the session to create the resource in.
-            module (str): The name of the module containing the function or class.
-            function_name (str): The name of the function to execute.
-            class_name (str, optional): The name of the class, if applicable.
-            kwargs (Dict[str, Argument]): The arguments to pass to the function.
+def create_obj_node(session_id: str, obj: Any) -> Resource:
+    if obj in _sessions[session_id].resource_obj_to_node:
+        return _sessions[session_id].resource_obj_to_node[obj]
 
-        Returns:
-            dict: The details of the newly created resource.
+    node_id = len(_sessions[session_id].resource_id_to_node) + 1
+    node = Resource(
+        id=node_id,
+        module_name=obj.__module__,
+        class_name=obj.__class__.__name__,
+        result_obj=obj,
+    )
+    _sessions[session_id].resource_id_to_node[node_id] = node
+    _sessions[session_id].resource_obj_to_node[obj] = node
+    return node
 
-        Raises:
-            HTTPException: If the session is not found, the module is not allowed,
-                           or there are errors in processing the arguments.
-        """
-        if session_id not in self.sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
 
-        await self.keep_alive(session_id)
-
-        if not re.match(self.allowed_modules, module):
-            raise HTTPException(status_code=404, detail="Module not found")
-
-        processed_kwargs = {}
-        errors = []
-        for key, arg in kwargs.items():
-            try:
-                if arg.type == "node":
-                    if arg.value not in self.sessions[session_id].resources:
-                        errors.append(
-                            {
-                                "message": f"Node {arg.value} not found in this session",
-                                "key": key,
-                                "type": arg.type,
-                                "value": arg.value,
-                            }
-                        )
-                    else:
-                        processed_kwargs[key] = (
-                            self.sessions[session_id].resources[arg.value].result
-                        )
-                elif arg.type == "int":
-                    processed_kwargs[key] = int(arg.value)
-                elif arg.type == "float":
-                    processed_kwargs[key] = float(arg.value)
-                elif arg.type == "str":
-                    processed_kwargs[key] = str(arg.value)
-                elif arg.type == "bool":
-                    processed_kwargs[key] = bool(arg.value)
-                elif arg.type == "list":
-                    processed_kwargs[key] = list(arg.value)
-                elif arg.type == "dict":
-                    processed_kwargs[key] = dict(arg.value)
-                elif arg.type == "tuple":
-                    processed_kwargs[key] = tuple(arg.value)
-                elif arg.type == "set":
-                    processed_kwargs[key] = set(arg.value)
-                else:
-                    errors.append(
-                        {
-                            "error": f"Invalid argument type",
-                            "key": key,
-                            "type": arg.type,
-                            "value": arg.value,
-                        }
-                    )
-            except Exception as e:
-                errors.append(
-                    {
-                        "error": f"Invalid argument value",
-                        "key": key,
-                        "type": arg.type,
-                        "value": arg.value,
-                    }
-                )
-
-        if errors:
-            raise HTTPException(status_code=400, detail=errors)
-
-        try:
-            result = await execute(module, class_name, function_name, processed_kwargs)
-        except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "Failed to execute node",
-                    "module_name": module,
-                    "class_name": class_name,
-                    "function_name": function_name,
-                    "message": str(e),
+def obj_to_argument(
+    session_id: str, key: list[str], obj: Any, recurse=True
+) -> Argument:
+    if obj is None:
+        return Argument(type="none", value=None)
+    elif isinstance(obj, (int, float, str, bool)):
+        return Argument(type=type(obj).__name__, value=obj)
+    elif isinstance(obj, list):
+        if recurse:
+            return Argument(
+                type="list",
+                value=[
+                    obj_to_argument(session_id, key + [i], item, recurse=False)
+                    for i, item in enumerate(obj)
+                ],
+            )
+        else:
+            return Argument(type="unsupported", value=None)
+    elif isinstance(obj, dict):
+        if recurse:
+            return Argument(
+                type="dict",
+                value={
+                    k: obj_to_argument(session_id, key + [k], v, recurse=False)
+                    for k, v in obj.items()
                 },
             )
-
-        if result in self.sessions[session_id].resource_to_node:
-            node = self.sessions[session_id].resource_to_node[result]
-            processed_result = node.processed_result
-        elif isinstance(result, HorseData):
-            processed_result = {}
-            for attr_name, attr_value in result.__dict__.items():
-                if attr_name in ("predecessors", "name"):
-                    continue
-                elif isinstance(attr_value, (int, float, str, bool)):
-                    attr_type = type(attr_value).__name__
-                    processed_result[attr_name] = Argument(
-                        type=attr_type, value=attr_value
-                    )
-                    continue
-                elif isinstance(attr_value, HorseData):
-                    if attr_value in self.sessions[session_id].resource_to_node:
-                        processed_result[attr_name] = Argument(
-                            type="node",
-                            value=self.sessions[session_id]
-                            .resource_to_node[attr_value]
-                            .id,
-                        )
-                        continue
-
-                    attr_module_name = type(attr_value).__module__
-                    attr_class_name = type(attr_value).__name__
-
-                    attr_node_id = len(self.sessions[session_id].resources) + 1
-                    attr_node = Node(
-                        id=attr_node_id,
-                        module_name=attr_module_name,
-                        class_name=attr_class_name,
-                        function_name=None,
-                        kwargs=None,
-                        result=attr_value,
-                    )
-                    self.sessions[session_id].resources[attr_node_id] = attr_node
-                    self.sessions[session_id].resource_to_node[attr_value] = attr_node
-                    processed_result[attr_name] = Argument(
-                        type="node", value=attr_node_id
-                    )
-
-            node_id = len(self.sessions[session_id].resources) + 1
-            node = Node(
-                id=node_id,
-                module_name=module,
-                class_name=class_name,
-                function_name=function_name,
-                kwargs=kwargs,
-                result=result,
-                processed_result=processed_result,
-            )
-
-            self.sessions[session_id].resources[node_id] = node
-            self.sessions[session_id].resource_to_node[result] = node
-        elif isinstance(result, (int, float, str, bool, list, dict, tuple, set)):
-            processed_result = Argument(type=type(result).__name__, value=result)
-            node = None
         else:
-            node_id = len(self.sessions[session_id].resources) + 1
-            processed_result = Argument(type="node", value=node_id)
-            node = Node(
-                id=node_id,
-                module_name=module,
-                class_name=class_name,
-                function_name=function_name,
-                kwargs=kwargs,
-                result=result,
-                processed_result=processed_result,
+            return Argument(type="unsupported", value=None)
+    elif isinstance(obj, tuple):
+        if recurse:
+            return Argument(
+                type="tuple",
+                value=tuple(
+                    obj_to_argument(session_id, key + [i], item, recurse=False)
+                    for i, item in enumerate(obj)
+                ),
             )
-            self.sessions[session_id].resources[node_id] = node
-            self.sessions[session_id].resource_to_node[result] = node
-
-        return {
-            "id": node.id if node is not None else None,
-            "result": processed_result,
-        }
-
-    async def delete_resource(self, session_id: str, resource_id: str):
-        """
-        Delete a specific resource from a session.
-
-        Args:
-            session_id (str): The ID of the session containing the resource.
-            resource_id (str): The ID of the resource to delete.
-
-        Returns:
-            dict: A message confirming the resource was deleted.
-
-        Raises:
-            HTTPException: If the session or resource is not found.
-        """
-        if session_id not in self.sessions:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        await self.keep_alive(session_id)
-
-        if resource_id not in self.sessions[session_id].resources:
-            raise HTTPException(
-                status_code=404, detail="Resource not found in this session"
+        else:
+            return Argument(type="unsupported", value=None)
+    elif isinstance(obj, set):
+        if recurse:
+            return Argument(
+                type="set",
+                value={
+                    obj_to_argument(session_id, key + [i], item, recurse=False)
+                    for i, item in enumerate(obj)
+                },
             )
-        del self.sessions[session_id].resources[resource_id]
-        return {
-            "message": f"Resource {resource_id} deleted successfully from session {session_id}"
-        }
+        else:
+            return Argument(type="unsupported", value=None)
+    elif hasattr(obj, "__hash__") and obj.__hash__ is not None:
+        if not recurse:
+            node = create_obj_node(session_id, obj)
+            return Argument(type="node", value=node.id)
+
+        result_node = create_obj_node(session_id, obj)
+        if result_node.result_dict is None:
+            result_dict = {}
+            for attr_name, attr_value in obj.__dict__.items():
+                if isinstance(obj, HorseVariable) and attr_name in (
+                    "predecessors",
+                    "name",
+                    "grad_fn",
+                ):
+                    continue
+                else:
+                    result_dict[attr_name] = obj_to_argument(
+                        session_id, key + [attr_name], attr_value, recurse=False
+                    )
+
+            result_node.result_dict = result_dict
+
+        return Argument(type="node", value=result_node.id)
+
+    else:
+        return Argument(type="unsupported", value=None)
+
+
+def pack_result(session_id, result):
+    processed_result = obj_to_argument(session_id, [], result, recurse=True)
+
+    if processed_result.type == "node":
+        node = _sessions[session_id].resource_id_to_node[processed_result.value]
+        node_id = node.id
+        result_dict = node.result_dict
+    else:
+        node_id = None
+        result_dict = processed_result
+
+    return node_id, result_dict
+
+
+@router.post("/sessions/{session_id}/resources", response_model=PostResourceResponse)
+async def post_resource(request: PostResourceRequest):
+    """
+    Create a new resource in a session.
+
+    Args:
+        request (PostResourceRequest): The request containing session and resource details.
+
+    Returns:
+        PostResourceResponse: The details of the newly created resource.
+
+    Raises:
+        HTTPException: If the session is not found, the module is not allowed,
+                       or there are errors in processing the arguments.
+    """
+    if request.session_id not in _sessions:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
+
+    await keep_alive(request)
+
+    processed_kwargs = {}
+    errors = []
+    for key, arg in request.kwargs.items():
+        try:
+            processed_kwargs[key] = unpack_argument(request.session_id, [key], arg)
+        except InvalidArgumentException as e:
+            errors.append(e.message)
+
+    if errors:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=errors)
+
+    result = await execute(
+        request.module, request.class_name, request.function_name, processed_kwargs
+    )
+
+    node_id, result_dict = pack_result(request.session_id, result)
+
+    return PostResourceResponse(
+        id=node_id,
+        result=result_dict,
+    )

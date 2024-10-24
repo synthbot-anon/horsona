@@ -3,220 +3,321 @@ import os
 
 import pytest
 from dotenv import load_dotenv
-from fastapi import HTTPException
-from horsona.interface.node_graph import NodeGraphAPI
+from fastapi import FastAPI, Response, status
 from horsona.interface.node_graph.node_graph_api import Argument
+from horsona.interface.node_graph.node_graph_models import (
+    Argument,
+    CreateSessionResponse,
+    KeepAliveRequest,
+    PostResourceRequest,
+    PostResourceResponse,
+)
 
 # Load environment variables from .env file
 load_dotenv()
 
+import pytest
+from fastapi.testclient import TestClient
+from horsona.interface import node_graph
+
+
+@pytest.fixture
+async def client():
+    app = FastAPI()
+    app.include_router(node_graph.api_router)
+
+    with TestClient(app) as client:
+        yield client
+
 
 @pytest.mark.asyncio
-async def test_node_graph():
-    node_graph_api = NodeGraphAPI()
-    session_id = (await node_graph_api.create_session())["session_id"]
-    print("session id:", session_id)
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_post_resource(client):
+    from horsona.autodiff.variables import Value
+    from horsona.llm import get_llm_engine
 
-    result1 = await node_graph_api.post_resource(
-        session_id=session_id,
-        module="horsona.autodiff.variables",
-        class_name="Value",
-        function_name="__init__",
-        kwargs={
-            "datatype": Argument(type="str", value="Some number"),
-            "value": Argument(type="float", value=1.0),
-        },
+    node_graph.configure()
+
+    # Create a session
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
+
+    # Create a Value that wraps a float
+    create_float_value_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
+            session_id=session_id,
+            module=Value.__module__,
+            class_name=Value.__name__,
+            function_name="__init__",
+            kwargs={
+                "datatype": Argument(type="str", value="Some number"),
+                "value": Argument(type="float", value=1.0),
+            },
+        ).model_dump(),
     )
+    assert create_float_value_response.status_code == status.HTTP_200_OK
+    create_float_value_obj = PostResourceResponse(**create_float_value_response.json())
 
-    assert result1["result"]["datatype"].type == "str"
-    assert result1["result"]["datatype"].value == "Some number"
-    assert result1["result"]["value"].type == "float"
-    assert result1["result"]["value"].value == 1.0
+    print(create_float_value_obj)
 
-    result2 = await node_graph_api.post_resource(
-        session_id=session_id,
-        module="horsona.autodiff.variables",
-        class_name="Value",
-        function_name="__init__",
-        kwargs={
-            "datatype": Argument(type="str", value="Some number"),
-            "value": Argument(type="node", value=result1["id"]),
-        },
+    assert create_float_value_obj.result["datatype"].type == "str"
+    assert create_float_value_obj.result["datatype"].value == "Some number"
+    assert create_float_value_obj.result["value"].type == "float"
+    assert create_float_value_obj.result["value"].value == 1.0
+
+    # Create a Value that wraps another Value
+    create_value_value_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
+            session_id=session_id,
+            module=Value.__module__,
+            class_name=Value.__name__,
+            function_name="__init__",
+            kwargs={
+                "datatype": Argument(type="str", value="Some number"),
+                "value": Argument(type="node", value=create_float_value_obj.id),
+            },
+        ).model_dump(),
     )
+    assert create_value_value_response.status_code == status.HTTP_200_OK
+    create_value_value_obj = PostResourceResponse(**create_value_value_response.json())
 
-    assert result2["result"]["datatype"].type == "str"
-    assert result2["result"]["datatype"].value == "Some number"
-    assert result2["result"]["value"].type == "node"
-    assert result2["result"]["value"].value == result1["id"]
+    assert create_value_value_obj.result["datatype"].type == "str"
+    assert create_value_value_obj.result["datatype"].value == "Some number"
+    assert create_value_value_obj.result["value"].type == "node"
+    assert create_value_value_obj.result["value"].value == create_float_value_obj.id
 
-    llm_api_result = await node_graph_api.post_resource(
-        session_id=session_id,
-        module="horsona.llm",
-        function_name="get_llm_engine",
-        kwargs={"name": Argument(type="str", value="reasoning_llm")},
+    # Create an LLM engine
+    create_llm_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
+            session_id=session_id,
+            module=get_llm_engine.__module__,
+            function_name=get_llm_engine.__name__,
+            kwargs={"name": Argument(type="str", value="reasoning_llm")},
+        ).model_dump(),
     )
+    assert create_llm_response.status_code == status.HTTP_200_OK
+    create_llm_obj = PostResourceResponse(**create_llm_response.json())
+    assert create_llm_obj.id is not None
 
-    assert "error" not in llm_api_result
 
-    try:
-        await node_graph_api.post_resource(
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_invalid_module(client):
+    node_graph.configure()
+    # Create a session
+    create_session_response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    session_id = CreateSessionResponse(**create_session_response.json()).session_id
+
+    # Test invalid module
+    create_invalid_module_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
             session_id=session_id,
             module="invalid_module",
             function_name="invalid_function",
             kwargs={},
-        )
-        assert False
-    except HTTPException as e:
-        assert e.status_code == 404
+        ).model_dump(),
+    )
+
+    assert create_invalid_module_response.status_code == status.HTTP_404_NOT_FOUND
+    assert "Module not found" in create_invalid_module_response.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_allowed_modules():
-    # Test with default allowed modules
-    default_api = NodeGraphAPI()
-    default_session_id = (await default_api.create_session())["session_id"]
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_allowed_modules(client):
+    from horsona.autodiff.variables import Value
+    from horsona.llm import get_llm_engine
+
+    node_graph.configure()
+
+    # Create a session
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
 
     # Test that horsona module is allowed by default
-    horsona_result = await default_api.post_resource(
-        session_id=default_session_id,
-        module="horsona.autodiff.variables",
-        class_name="Value",
-        function_name="__init__",
-        kwargs={
-            "datatype": Argument(type="str", value="Test"),
-            "value": Argument(type="float", value=1.0),
-        },
+    create_value_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
+            session_id=session_id,
+            module=Value.__module__,
+            class_name=Value.__name__,
+            function_name="__init__",
+            kwargs={
+                "datatype": Argument(type="str", value="Test"),
+                "value": Argument(type="float", value=1.0),
+            },
+        ).model_dump(),
     )
-    assert "error" not in horsona_result
+    assert create_value_response.status_code == status.HTTP_200_OK
+    create_value_obj = PostResourceResponse(**create_value_response.json())
+    assert "error" not in create_value_obj.model_dump()
 
     # Test that other modules are disallowed by default
-    with pytest.raises(HTTPException) as exc_info:
-        await default_api.post_resource(
-            session_id=default_session_id,
+    create_json_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
+            session_id=session_id,
             module="json",
             function_name="dumps",
             kwargs={
                 "obj": Argument(type="dict", value={"key": "value"}),
                 "indent": Argument(type="int", value=2),
             },
-        )
-    assert exc_info.value.status_code == 404
-    assert "Module not found" in str(exc_info.value.detail)
+        ).model_dump(),
+    )
+
+    assert create_json_response.status_code == status.HTTP_404_NOT_FOUND
+    assert "Module not found" in create_json_response.json()["detail"]
 
     # Test with custom allowed modules
-    custom_api = NodeGraphAPI(extra_modules=["json", "random"])
-    custom_session_id = (await custom_api.create_session())["session_id"]
+    node_graph.configure(extra_modules=["json", "random"])
+    custom_session_response = client.post("/api/sessions")
+    assert custom_session_response.status_code == status.HTTP_200_OK
+    custom_session_obj = CreateSessionResponse(**custom_session_response.json())
+    custom_session_id = custom_session_obj.session_id
 
     # Test that horsona module is still allowed
-    horsona_result = await custom_api.post_resource(
-        session_id=custom_session_id,
-        module="horsona.llm",
-        function_name="get_llm_engine",
-        kwargs={"name": Argument(type="str", value="reasoning_llm")},
+    create_llm_response = client.post(
+        f"/api/sessions/{custom_session_id}/resources",
+        json=PostResourceRequest(
+            session_id=custom_session_id,
+            module=get_llm_engine.__module__,
+            function_name=get_llm_engine.__name__,
+            kwargs={"name": Argument(type="str", value="reasoning_llm")},
+        ).model_dump(),
     )
-    assert "error" not in horsona_result
+    assert create_llm_response.status_code == status.HTTP_200_OK
 
     # Test that custom modules are now allowed
-    json_result = await custom_api.post_resource(
-        session_id=custom_session_id,
-        module="json",
-        function_name="dumps",
-        kwargs={
-            "obj": Argument(type="dict", value={"key": "value"}),
-            "indent": Argument(type="int", value=2),
-        },
+    create_json_response = client.post(
+        f"/api/sessions/{custom_session_id}/resources",
+        json=PostResourceRequest(
+            session_id=custom_session_id,
+            module="json",
+            function_name="dumps",
+            kwargs={
+                "obj": Argument(type="dict", value={"key": "value"}),
+                "indent": Argument(type="int", value=2),
+            },
+        ).model_dump(),
     )
-    assert "error" not in json_result
+    assert create_json_response.status_code == status.HTTP_200_OK
 
-    random_result = await custom_api.post_resource(
-        session_id=custom_session_id,
-        module="random",
-        function_name="randint",
-        kwargs={
-            "a": Argument(type="int", value=1),
-            "b": Argument(type="int", value=10),
-        },
+    create_random_response = client.post(
+        f"/api/sessions/{custom_session_id}/resources",
+        json=PostResourceRequest(
+            session_id=custom_session_id,
+            module="random",
+            function_name="randint",
+            kwargs={
+                "a": Argument(type="int", value=1),
+                "b": Argument(type="int", value=10),
+            },
+        ).model_dump(),
     )
-    assert "error" not in random_result
+    assert create_random_response.status_code == status.HTTP_200_OK
 
     # Test that non-specified modules are still disallowed
-    with pytest.raises(HTTPException) as exc_info:
-        await custom_api.post_resource(
+    create_os_response: Response = client.post(
+        f"/api/sessions/{custom_session_id}/resources",
+        json=PostResourceRequest(
             session_id=custom_session_id,
             module="os",
             function_name="getcwd",
             kwargs={},
-        )
-    assert exc_info.value.status_code == 404
-    assert "Module not found" in str(exc_info.value.detail)
+        ).model_dump(),
+    )
+    assert create_os_response.status_code == status.HTTP_404_NOT_FOUND
+    assert "Module not found" in create_os_response.json()["detail"]
 
 
 # Test session timeout and keep_alive
 @pytest.mark.asyncio
-async def test_session_timeout_and_keep_alive():
-    # Create a NodeGraphAPI instance with a short timeout
-    short_timeout_api = NodeGraphAPI(session_timeout=0.5, session_cleanup_interval=0.25)
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_session_timeout(client):
+    from horsona.autodiff.variables import Value
 
-    # Start the API to initiate the cleanup task
-    await short_timeout_api.start()
+    # Configure node_graph with a short timeout
+    node_graph.configure(session_timeout=0.5, session_cleanup_interval=0.25)
 
     # Create a session
-    session_response = await short_timeout_api.create_session()
-    session_id = session_response["session_id"]
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
 
     # Verify the session is active by posting a resource
-    result = await short_timeout_api.post_resource(
-        session_id=session_id,
-        module="horsona.autodiff.variables",
-        class_name="Value",
-        function_name="__init__",
-        kwargs={
-            "datatype": Argument(type="str", value="test"),
-            "value": Argument(type="float", value=1.0),
-        },
-    )
-    assert "error" not in result
-
-    # Wait for the session to timeout
-    await asyncio.sleep(0.75)
-
-    # Attempt to use the timed-out session
-    with pytest.raises(HTTPException) as exc_info:
-        await short_timeout_api.post_resource(
+    create_value_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
             session_id=session_id,
             module="horsona.autodiff.variables",
             class_name="Value",
             function_name="__init__",
             kwargs={
                 "datatype": Argument(type="str", value="test"),
+                "value": Argument(type="float", value=1.0),
+            },
+        ).model_dump(),
+    )
+    assert create_value_response.status_code == status.HTTP_200_OK
+
+    # Wait for the session to timeout
+    await asyncio.sleep(0.8)
+
+    # Attempt to use the timed-out session
+    create_timed_out_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
+            session_id=session_id,
+            module=Value.__module__,
+            class_name=Value.__name__,
+            function_name="__init__",
+            kwargs={
+                "datatype": Argument(type="str", value="test"),
                 "value": Argument(type="float", value=2.0),
             },
-        )
-
-    assert exc_info.value.status_code == 404
-    assert "Session not found" in str(exc_info.value.detail)
+        ).model_dump(),
+    )
+    assert create_timed_out_response.status_code == status.HTTP_404_NOT_FOUND
+    assert "Session not found" in create_timed_out_response.json()["detail"]
 
     # Create a new session to test keep_alive
-    session_response = await short_timeout_api.create_session()
-    session_id = session_response["session_id"]
+    create_new_session_response: Response = client.post("/api/sessions")
+    assert create_new_session_response.status_code == status.HTTP_200_OK
+    create_new_session_obj = CreateSessionResponse(**create_new_session_response.json())
+    new_session_id = create_new_session_obj.session_id
 
     # Keep the session alive
     for _ in range(3):
         await asyncio.sleep(0.35)
-        await short_timeout_api.keep_alive(session_id)
+        keep_alive_response: Response = client.post(
+            f"/api/sessions/{new_session_id}/keep_alive",
+            json=KeepAliveRequest(session_id=new_session_id).model_dump(),
+        )
+        assert keep_alive_response.status_code == status.HTTP_200_OK
 
     # Verify the session is still active after keep_alive calls
-    result = await short_timeout_api.post_resource(
-        session_id=session_id,
-        module="horsona.autodiff.variables",
-        class_name="Value",
-        function_name="__init__",
-        kwargs={
-            "datatype": Argument(type="str", value="test"),
-            "value": Argument(type="float", value=3.0),
-        },
+    create_after_keep_alive_response: Response = client.post(
+        f"/api/sessions/{new_session_id}/resources",
+        json=PostResourceRequest(
+            session_id=new_session_id,
+            module=Value.__module__,
+            class_name=Value.__name__,
+            function_name="__init__",
+            kwargs={
+                "datatype": Argument(type="str", value="test"),
+                "value": Argument(type="float", value=3.0),
+            },
+        ).model_dump(),
     )
-    assert "error" not in result
-
-    # Stop the API to cancel the cleanup task
-    await short_timeout_api.stop()
+    assert create_after_keep_alive_response.status_code == status.HTTP_200_OK

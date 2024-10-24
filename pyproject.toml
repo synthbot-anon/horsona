@@ -38,6 +38,7 @@ priority = "supplemental"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "auto"
 
 [build-system]
 requires = ["poetry-core"]
