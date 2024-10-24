@@ -1,9 +1,9 @@
 import asyncio
-import os
 
 import pytest
-from dotenv import load_dotenv
 from fastapi import FastAPI, Response, status
+from fastapi.testclient import TestClient
+from horsona.interface import node_graph
 from horsona.interface.node_graph.node_graph_api import Argument
 from horsona.interface.node_graph.node_graph_models import (
     Argument,
@@ -12,13 +12,6 @@ from horsona.interface.node_graph.node_graph_models import (
     PostResourceRequest,
     PostResourceResponse,
 )
-
-# Load environment variables from .env file
-load_dotenv()
-
-import pytest
-from fastapi.testclient import TestClient
-from horsona.interface import node_graph
 
 
 @pytest.fixture

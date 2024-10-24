@@ -45,9 +45,9 @@ To uninstall the Docker image:
 1. Navigate to the `node_graph_api/bin/windows` folder. (On Linux: `node_graph_api/bin/linux`)
 2. Run `uninstall - node_graph_api.bat`. (On Linux: `uninstall - node_graph_api.sh`)
 
-## Example: Running node_graph_api.exposed_module.hello_world
+## Example: Running a custom function
 
-Here's an example of how to use curl commands to run the `hello_world` function from the `exposed_module`:
+The sample code exposes a `hello_world` function through `node_graph_api.exposed_module`. Here's an example of how to use curl commands to run it:
 
 1. Create a new session and get the session ID:
 
@@ -59,7 +59,7 @@ Here's an example of how to use curl commands to run the `hello_world` function 
 
    ```bash
    curl -X 'POST' \
-     'http://localhost:8000/api/sessions/$SESSION_ID/resources' \
+     "http://localhost:8000/api/sessions/$SESSION_ID/resources" \
      -H 'accept: application/json' \
      -H 'Content-Type: application/json' \
      -d '{
