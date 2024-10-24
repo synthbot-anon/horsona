@@ -24,7 +24,7 @@ class Resource(BaseModel):
     module_name: str
     class_name: str
     result_obj: Any
-    result_dict: dict[str, Argument] = None
+    result_dict: Optional[dict[str, Argument]] = None
 
 
 class Session(BaseModel):
@@ -439,7 +439,7 @@ def obj_to_argument(
             )
         else:
             return Argument(type="unsupported", value=None)
-    elif hasattr(obj, "__hash__") and obj.__hash__ is not None:
+    elif isinstance(obj, HorseData):
         if not recurse:
             node = create_obj_node(session_id, obj)
             return Argument(type="node", value=node.id)
@@ -454,6 +454,7 @@ def obj_to_argument(
                     "grad_fn",
                 ):
                     continue
+
                 else:
                     result_dict[attr_name] = obj_to_argument(
                         session_id, key + [attr_name], attr_value, recurse=False

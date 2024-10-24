@@ -9,7 +9,7 @@ authors = [
 
 [tool.poetry.dependencies]
 python = "^3.11"
-horsona = { git = "https://github.com/synthbot-anon/horsona", rev = "31e4a48cc8b4a9cedb0f199ee29acc2afc8efd6d" }
+horsona = { git = "https://github.com/synthbot-anon/horsona", rev = "3820f1672a53087c4026ec7353859d0d66c88108" }
 
 
 [build-system]

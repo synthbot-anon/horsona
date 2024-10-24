@@ -8,6 +8,7 @@ from horsona.interface.node_graph.node_graph_api import Argument
 from horsona.interface.node_graph.node_graph_models import (
     Argument,
     CreateSessionResponse,
+    ListResourcesResponse,
     PostResourceRequest,
     PostResourceResponse,
 )
@@ -319,3 +320,52 @@ async def test_session_timeout(client):
         ).model_dump(),
     )
     assert create_after_keep_alive_response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_list_resources(client):
+    from horsona.autodiff.variables import Value
+
+    node_graph.configure()
+
+    # Create a session
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
+
+    # Create a Value object
+    create_value_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources",
+        json=PostResourceRequest(
+            session_id=session_id,
+            module_name=Value.__module__,
+            class_name=Value.__name__,
+            function_name="__init__",
+            kwargs={
+                "datatype": Argument(type="str", value="Test Value"),
+                "value": Argument(type="float", value=42.0),
+            },
+        ).model_dump(),
+    )
+    assert create_value_response.status_code == status.HTTP_200_OK
+    create_value_obj = PostResourceResponse(**create_value_response.json())
+
+    # Verify the created Value object
+    assert create_value_obj.result["datatype"].type == "str"
+    assert create_value_obj.result["datatype"].value == "Test Value"
+    assert create_value_obj.result["value"].type == "float"
+    assert create_value_obj.result["value"].value == 42.0
+
+    # List resources
+    list_resources_response: Response = client.get(
+        f"/api/sessions/{session_id}/resources"
+    )
+    assert list_resources_response.status_code == status.HTTP_200_OK
+    list_resources_obj = ListResourcesResponse(**list_resources_response.json())
+
+    # Verify that the created Value object is in the list of resources
+    assert len(list_resources_obj.resources) == 1
+    assert list_resources_obj.resources[0].id == create_value_obj.id
+    assert list_resources_obj.resources[0].result == create_value_obj.result
