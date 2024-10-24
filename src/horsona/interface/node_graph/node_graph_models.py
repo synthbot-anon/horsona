@@ -46,10 +46,6 @@ class CreateSessionResponse(BaseModel):
     message: str
 
 
-class KeepAliveRequest(BaseModel):
-    session_id: str
-
-
 class KeepAliveResponse(BaseModel):
     message: str
 
@@ -59,25 +55,12 @@ class ResourceResponse(BaseModel):
     result: dict[str, Argument]
 
 
-class ListResourcesRequest(BaseModel):
-    session_id: str
-
-
 class ListResourcesResponse(BaseModel):
     resources: list[ResourceResponse]
 
 
-class DeleteSessionRequest(BaseModel):
-    session_id: str
-
-
 class DeleteSessionResponse(BaseModel):
     message: str
-
-
-class GetResourceRequest(BaseModel):
-    session_id: str
-    resource_id: int
 
 
 class GetResourceResponse(ResourceResponse):
@@ -85,10 +68,9 @@ class GetResourceResponse(ResourceResponse):
 
 
 class PostResourceRequest(BaseModel):
-    session_id: str
-    module: str
-    function_name: str
+    module_name: str
     class_name: Optional[str] = None
+    function_name: str
     kwargs: dict[str, Argument] = {}
 
 

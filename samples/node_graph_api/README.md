@@ -52,14 +52,14 @@ Here's an example of how to use curl commands to run the `hello_world` function 
 1. Create a new session and get the session ID:
 
    ```bash
-   SESSION_ID=$(curl -X POST http://localhost:8000/sessions | jq -r '.session_id')
+   SESSION_ID=$(curl -X POST http://localhost:8000/api/sessions | jq -r '.session_id')
    ```
 
 2. Run the `hello_world` function:
 
    ```bash
    curl -X 'POST' \
-     "http://localhost:8000/sessions/$SESSION_ID/resources?module=node_graph_api.exposed_module&function_name=hello_world" \
+     "http://localhost:8000/api/sessions/$SESSION_ID/resources?module=node_graph_api.exposed_module&function_name=hello_world" \
      -H 'accept: application/json' \
      -H 'Content-Type: application/json' \
      -d '{}'
@@ -72,7 +72,7 @@ Here's an example of how to use curl commands to run the `hello_world` function 
 
    ```bash
    curl -X 'DELETE' \
-     "http://localhost:8000/sessions/$SESSION_ID" \
+     "http://localhost:8000/api/sessions/$SESSION_ID" \
      -H 'accept: application/json'
    ```
 

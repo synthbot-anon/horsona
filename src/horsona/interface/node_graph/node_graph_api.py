@@ -213,13 +213,12 @@ async def create_session() -> CreateSessionResponse:
 
 
 @router.post("/sessions/{session_id}/keep_alive", response_model=KeepAliveResponse)
-async def keep_alive(request: KeepAliveRequest):
+async def keep_alive(session_id: str):
     """
     Keep a session alive by updating its last active time.
 
     Args:
         session_id (str): The ID of the session to keep alive.
-        request (KeepAliveRequest): The request body containing the session ID.
 
     Returns:
         KeepAliveResponse: A response object with a message confirming the session was kept alive.
@@ -227,16 +226,16 @@ async def keep_alive(request: KeepAliveRequest):
     Raises:
         HTTPException: If the session is not found.
     """
-    if request.session_id not in _sessions:
+    if session_id not in _sessions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
-    _sessions[request.session_id].last_active = time()
+    _sessions[session_id].last_active = time()
     return KeepAliveResponse(message="Session kept alive")
 
 
 @router.get("/sessions/{session_id}/resources", response_model=ListResourcesResponse)
-async def list_resources(request: ListResourcesRequest):
+async def list_resources(session_id: str):
     """
     List all resources in a session.
 
@@ -249,14 +248,14 @@ async def list_resources(request: ListResourcesRequest):
     Raises:
         HTTPException: If the session is not found.
     """
-    if request.session_id not in _sessions:
+    if session_id not in _sessions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
 
     resources = []
-    for node in _sessions[request.session_id].resource_id_to_node.values():
-        node_id, result_dict = pack_result(request.session_id, node.result_obj)
+    for node in _sessions[session_id].resource_id_to_node.values():
+        node_id, result_dict = pack_result(session_id, node.result_obj)
         resources.append(
             ResourceResponse(
                 id=node_id,
@@ -267,13 +266,12 @@ async def list_resources(request: ListResourcesRequest):
 
 
 @router.delete("/sessions/{session_id}", response_model=DeleteSessionResponse)
-async def delete_session(session_id: str, request: DeleteSessionRequest):
+async def delete_session(session_id: str):
     """
     Delete a session and all its resources.
 
     Args:
         session_id (str): The ID of the session to delete.
-        request (DeleteSessionRequest): The request body containing the session ID.
 
     Returns:
         DeleteSessionResponse: A message confirming the session was deleted.
@@ -281,7 +279,7 @@ async def delete_session(session_id: str, request: DeleteSessionRequest):
     Raises:
         HTTPException: If the session is not found.
     """
-    if session_id != request.session_id or session_id not in _sessions:
+    if session_id not in _sessions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
@@ -294,7 +292,7 @@ async def delete_session(session_id: str, request: DeleteSessionRequest):
 @router.get(
     "/sessions/{session_id}/resources/{resource_id}", response_model=GetResourceResponse
 )
-async def get_resource(request: GetResourceRequest):
+async def get_resource(session_id: str, resource_id: int):
     """
     Get a specific resource from a session.
 
@@ -308,23 +306,21 @@ async def get_resource(request: GetResourceRequest):
     Raises:
         HTTPException: If the session or resource is not found.
     """
-    if request.session_id not in _sessions:
+    if session_id not in _sessions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
 
-    await keep_alive(request)
+    await keep_alive(session_id)
 
-    if request.resource_id not in _sessions[request.session_id].resource_id_to_node:
+    if resource_id not in _sessions[session_id].resource_id_to_node:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Resource not found in this session",
         )
 
-    node: Resource = _sessions[request.session_id].resource_id_to_node[
-        request.resource_id
-    ]
-    node_id, result_dict = pack_result(request.session_id, node.result_obj)
+    node: Resource = _sessions[session_id].resource_id_to_node[resource_id]
+    node_id, result_dict = pack_result(session_id, node.result_obj)
 
     return GetResourceResponse(
         id=node_id,
@@ -486,11 +482,12 @@ def pack_result(session_id, result):
 
 
 @router.post("/sessions/{session_id}/resources", response_model=PostResourceResponse)
-async def post_resource(request: PostResourceRequest):
+async def post_resource(session_id, request: PostResourceRequest):
     """
     Create a new resource in a session.
 
     Args:
+        session_id (str): The ID of the session to create the resource in.
         request (PostResourceRequest): The request containing session and resource details.
 
     Returns:
@@ -500,18 +497,18 @@ async def post_resource(request: PostResourceRequest):
         HTTPException: If the session is not found, the module is not allowed,
                        or there are errors in processing the arguments.
     """
-    if request.session_id not in _sessions:
+    if session_id not in _sessions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
 
-    await keep_alive(request)
+    await keep_alive(session_id)
 
     processed_kwargs = {}
     errors = []
     for key, arg in request.kwargs.items():
         try:
-            processed_kwargs[key] = unpack_argument(request.session_id, [key], arg)
+            processed_kwargs[key] = unpack_argument(session_id, [key], arg)
         except InvalidArgumentException as e:
             errors.append(e.message)
 
@@ -519,10 +516,10 @@ async def post_resource(request: PostResourceRequest):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=errors)
 
     result = await execute(
-        request.module, request.class_name, request.function_name, processed_kwargs
+        request.module_name, request.class_name, request.function_name, processed_kwargs
     )
 
-    node_id, result_dict = pack_result(request.session_id, result)
+    node_id, result_dict = pack_result(session_id, result)
 
     return PostResourceResponse(
         id=node_id,

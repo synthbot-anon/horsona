@@ -8,7 +8,6 @@ from horsona.interface.node_graph.node_graph_api import Argument
 from horsona.interface.node_graph.node_graph_models import (
     Argument,
     CreateSessionResponse,
-    KeepAliveRequest,
     PostResourceRequest,
     PostResourceResponse,
 )
@@ -49,7 +48,7 @@ async def test_post_resource(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module=Value.__module__,
+            module_name=Value.__module__,
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
@@ -73,7 +72,7 @@ async def test_post_resource(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module=Value.__module__,
+            module_name=Value.__module__,
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
@@ -95,7 +94,7 @@ async def test_post_resource(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module=get_llm_engine.__module__,
+            module_name=get_llm_engine.__module__,
             function_name=get_llm_engine.__name__,
             kwargs={"name": Argument(type="str", value="reasoning_llm")},
         ).model_dump(),
@@ -119,7 +118,7 @@ async def test_invalid_module(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module="invalid_module",
+            module_name="invalid_module",
             function_name="invalid_function",
             kwargs={},
         ).model_dump(),
@@ -148,7 +147,7 @@ async def test_allowed_modules(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module=Value.__module__,
+            module_name=Value.__module__,
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
@@ -166,7 +165,7 @@ async def test_allowed_modules(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module="json",
+            module_name="json",
             function_name="dumps",
             kwargs={
                 "obj": Argument(type="dict", value={"key": "value"}),
@@ -190,7 +189,7 @@ async def test_allowed_modules(client):
         f"/api/sessions/{custom_session_id}/resources",
         json=PostResourceRequest(
             session_id=custom_session_id,
-            module=get_llm_engine.__module__,
+            module_name=get_llm_engine.__module__,
             function_name=get_llm_engine.__name__,
             kwargs={"name": Argument(type="str", value="reasoning_llm")},
         ).model_dump(),
@@ -202,7 +201,7 @@ async def test_allowed_modules(client):
         f"/api/sessions/{custom_session_id}/resources",
         json=PostResourceRequest(
             session_id=custom_session_id,
-            module="json",
+            module_name="json",
             function_name="dumps",
             kwargs={
                 "obj": Argument(type="dict", value={"key": "value"}),
@@ -216,7 +215,7 @@ async def test_allowed_modules(client):
         f"/api/sessions/{custom_session_id}/resources",
         json=PostResourceRequest(
             session_id=custom_session_id,
-            module="random",
+            module_name="random",
             function_name="randint",
             kwargs={
                 "a": Argument(type="int", value=1),
@@ -231,7 +230,7 @@ async def test_allowed_modules(client):
         f"/api/sessions/{custom_session_id}/resources",
         json=PostResourceRequest(
             session_id=custom_session_id,
-            module="os",
+            module_name="os",
             function_name="getcwd",
             kwargs={},
         ).model_dump(),
@@ -260,7 +259,7 @@ async def test_session_timeout(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module="horsona.autodiff.variables",
+            module_name="horsona.autodiff.variables",
             class_name="Value",
             function_name="__init__",
             kwargs={
@@ -279,7 +278,7 @@ async def test_session_timeout(client):
         f"/api/sessions/{session_id}/resources",
         json=PostResourceRequest(
             session_id=session_id,
-            module=Value.__module__,
+            module_name=Value.__module__,
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
@@ -302,7 +301,6 @@ async def test_session_timeout(client):
         await asyncio.sleep(0.35)
         keep_alive_response: Response = client.post(
             f"/api/sessions/{new_session_id}/keep_alive",
-            json=KeepAliveRequest(session_id=new_session_id).model_dump(),
         )
         assert keep_alive_response.status_code == status.HTTP_200_OK
 
@@ -311,7 +309,7 @@ async def test_session_timeout(client):
         f"/api/sessions/{new_session_id}/resources",
         json=PostResourceRequest(
             session_id=new_session_id,
-            module=Value.__module__,
+            module_name=Value.__module__,
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={

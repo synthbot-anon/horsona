@@ -4,8 +4,7 @@ import asyncio
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
-
-from . import api_routes, node_graph
+from horsona.interface import node_graph
 
 
 async def main():
@@ -27,7 +26,7 @@ async def main():
     args = parser.parse_args()
 
     app = FastAPI()
-    app.include_router(api_routes.api_router)
+    app.include_router(node_graph.api_router)
     node_graph.configure(
         session_timeout=args.session_timeout,
         session_cleanup_interval=args.session_cleanup_interval,
