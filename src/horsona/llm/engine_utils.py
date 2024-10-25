@@ -177,7 +177,8 @@ def parse_obj_response(response_model: Type[BaseModel], content: str):
         json_start = content.find("```") + 3
 
     json_end = content.find("```", json_start)
-    obj = json.loads(content[json_start:json_end].strip())
+    cleaned_json = clean_json_string(content[json_start:json_end].strip())
+    obj = json.loads(cleaned_json)
 
     return response_model(**obj)
 
@@ -196,13 +197,15 @@ def parse_block_response(block_type: str, content: str):
     Returns:
         str: The extracted content from the code block.
     """
+    if "```" not in content:
+        return content
+
     if f"```{block_type}" in content:
         start = content.find(f"```{block_type}") + 3 + len(block_type)
     elif "```" in content:
         start = content.find("```") + 3
 
     end = content.find("```", start)
-
     return content[start:end].strip()
 
 
@@ -229,3 +232,40 @@ async def _convert_to_dict(obj):
         return obj
     else:
         return await _convert_to_dict(await obj.json())
+
+
+def clean_json_string(json_str):
+    """
+    Clean a JSON string by properly handling newlines within quoted values.
+
+    Args:
+        json_str (str): The potentially invalid JSON string to clean
+
+    Returns:
+        str: A cleaned JSON string with escaped newlines
+    """
+    # State variables
+    in_quotes = False
+    is_escaped = False
+    clean_chars = []
+
+    for char in json_str:
+        if char == '"' and not is_escaped:
+            in_quotes = not in_quotes
+
+        elif char == "\\":
+            is_escaped = True
+            clean_chars.append(char)
+            continue
+
+        # Handle newlines inside quoted strings
+        elif char in "\n\r" and in_quotes:
+            clean_chars.append("\\n")
+            if char == "\r" and json_str[json_str.index(char) + 1] == "\n":
+                continue
+            continue
+
+        is_escaped = False
+        clean_chars.append(char)
+
+    return "".join(clean_chars)

@@ -69,7 +69,6 @@ class EmbeddingModel(HorseData, ABC):
 
     @classmethod
     def load_state_dict(cls, state_dict, args={}, debug_prefix=[]):
-        print("loading", state_dict)
         if isinstance(state_dict["name"], str):
             if args:
                 raise ValueError(

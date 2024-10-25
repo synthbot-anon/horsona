@@ -54,8 +54,6 @@ async def test_post_resource(client):
     assert create_float_value_response.status_code == status.HTTP_200_OK
     create_float_value_obj = PostResourceResponse(**create_float_value_response.json())
 
-    print(create_float_value_obj)
-
     assert create_float_value_obj.result["datatype"].type == "str"
     assert create_float_value_obj.result["datatype"].value == "Some number"
     assert create_float_value_obj.result["value"].type == "float"

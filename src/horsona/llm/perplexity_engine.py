@@ -1,8 +1,11 @@
+import json
 import os
+import re
 
 import httpx
 
 from .chat_engine import AsyncChatEngine
+from .engine_utils import clean_json_string
 
 
 class AsyncPerplexityEngine(AsyncChatEngine):
@@ -51,7 +54,8 @@ class AsyncPerplexityEngine(AsyncChatEngine):
                 url, json=payload, headers=headers, timeout=None
             )
 
-        response_json = response.json()
+        raw_content = clean_json_string(response.content.decode("utf-8"))
+        response_json = json.loads(raw_content)
         content = response_json["choices"][0]["message"]["content"]
         total_tokens = response_json["usage"]["total_tokens"]
 

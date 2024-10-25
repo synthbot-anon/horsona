@@ -29,6 +29,7 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
             messages=await generate_obj_query_messages(response_model, prompt_args),
             **api_args,
         )
+
         return parse_obj_response(response_model, response)
 
     async def query_block(self, block_type: str, **kwargs) -> str:
@@ -39,6 +40,7 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
             messages=await _generate_block_query_messages(block_type, prompt_args),
             **api_args,
         )
+
         return parse_block_response(block_type, response)
 
     async def query_continuation(self, prompt: str, **kwargs) -> str:

@@ -32,6 +32,7 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
     from horsona.llm.groq_engine import AsyncGroqEngine
     from horsona.llm.multi_engine import create_multi_engine
     from horsona.llm.openai_engine import AsyncOpenAIEngine
+    from horsona.llm.perplexity_engine import AsyncPerplexityEngine
     from horsona.llm.together_engine import AsyncTogetherEngine
 
     with open(LLM_CONFIG_PATH, "r") as f:
@@ -69,6 +70,10 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
                 )
             elif engine_type == "AsyncTogetherEngine":
                 engines[name] = AsyncTogetherEngine(
+                    model=model, rate_limits=rate_limits, name=name
+                )
+            elif engine_type == "AsyncPerplexityEngine":
+                engines[name] = AsyncPerplexityEngine(
                     model=model, rate_limits=rate_limits, name=name
                 )
             elif engine_type == "MultiEngine":
