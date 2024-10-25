@@ -59,5 +59,3 @@ coverage/
 __pycache__/
 .vscode/launch.json
 
-product.txt
-output/
