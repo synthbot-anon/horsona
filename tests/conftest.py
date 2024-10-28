@@ -1,5 +1,4 @@
-import functools
-import json
+import os
 
 import pytest
 from dotenv import load_dotenv
@@ -8,6 +7,25 @@ from horsona.llm import engines as llm_engines
 from horsona.llm import load_engines as load_llm_engines
 
 load_dotenv()
+
+
+def get_missing_config_files():
+    missing_files = []
+    if not os.path.exists("llm_config.json"):
+        missing_files.append("llm_config.json")
+    if not os.path.exists("index_config.json"):
+        missing_files.append("index_config.json")
+    return missing_files
+
+
+missing_files = get_missing_config_files()
+if missing_files:
+    error_msg = (
+        "Required config files not found in current working directory. "
+        "Run dev-install.sh to create them, or check the README for how to create them. "
+        f"Missing: {' and '.join(missing_files)}"
+    )
+    raise FileNotFoundError(error_msg)
 
 
 # Add LLMs from llm_config.json
