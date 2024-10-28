@@ -28,12 +28,6 @@ if missing_files:
     raise FileNotFoundError(error_msg)
 
 
-# Add LLMs from llm_config.json
-# with open("llm_config.json") as f:
-#     config = json.load(f)
-#     engines = engines_from_config(config)
-
-
 class FixtureFunctionWrapper:
     def __init__(self, name, obj):
         self.__name__ = name
