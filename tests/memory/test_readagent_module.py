@@ -68,11 +68,10 @@ Ashley brewed herself a cup of tea, and brought it over along with some scrap pa
 
 
 import pytest
-from pydantic import BaseModel
-
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.gist_module import GistModule, paginate
 from horsona.memory.readagent_llm import ReadAgentLLMEngine
+from pydantic import BaseModel
 
 
 @pytest.fixture
@@ -84,15 +83,22 @@ async def readagent_llm(reasoning_llm):
         print()
     return ReadAgentLLMEngine(reasoning_llm, gist_module, max_pages=2)
 
+
 @pytest.mark.asyncio
 async def test_query_block(readagent_llm):
     response = await readagent_llm.query_block(
         "text",
         PROMPT="What is Ashley supposed to do with the game?",
     )
-    
+
     print(response)
-    assert "figure out" in response.lower() or "determine" in response.lower() or "test" in response.lower() or "verify" in response.lower()
+    assert (
+        "figure out" in response.lower()
+        or "determine" in response.lower()
+        or "test" in response.lower()
+        or "verify" in response.lower()
+    )
+
 
 @pytest.mark.asyncio
 async def test_query_object(readagent_llm):
@@ -108,6 +114,7 @@ async def test_query_object(readagent_llm):
     assert isinstance(response, Response)
     assert "hanna" in response.author.lower() or "hofvarpnir" in response.author.lower()
 
+
 @pytest.mark.asyncio
 async def test_load_readagent_llm(reasoning_llm, readagent_llm):
     state_dict = readagent_llm.state_dict()
@@ -116,4 +123,3 @@ async def test_load_readagent_llm(reasoning_llm, readagent_llm):
     assert isinstance(restored, ReadAgentLLMEngine)
     assert isinstance(restored.underlying_llm, type(reasoning_llm))
     assert isinstance(restored.gist_module, GistModule)
-

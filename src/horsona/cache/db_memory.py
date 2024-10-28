@@ -2,7 +2,6 @@ from typing import AsyncGenerator, Type
 
 from horsona.autodiff.basic import GradContext, horsefunction
 from horsona.autodiff.variables import DictValue, Value
-from horsona.cache.base_cache import BaseCache
 from horsona.database.base_database import (
     Database,
     DatabaseInsertGradient,
@@ -10,9 +9,10 @@ from horsona.database.base_database import (
     DatabaseTextGradient,
 )
 from horsona.llm.base_engine import AsyncLLMEngine
+from horsona.memory.base_memory import BaseMemory
 
 
-class DatabaseCache(DictValue, BaseCache[DictValue, Value[str]]):
+class DatabaseCache(DictValue, BaseMemory[DictValue, Value[str]]):
     def __init__(
         self,
         llm: AsyncLLMEngine,
@@ -22,7 +22,7 @@ class DatabaseCache(DictValue, BaseCache[DictValue, Value[str]]):
         db_query_args={},
         **kwargs,
     ):
-        BaseCache.__init__(self)
+        BaseMemory.__init__(self)
 
         super_kwargs = kwargs.copy()
         datatype = super_kwargs.pop("datatype", "Database cache")
@@ -39,10 +39,9 @@ class DatabaseCache(DictValue, BaseCache[DictValue, Value[str]]):
         self.db_query_args = db_query_args
 
     @horsefunction
-    async def load(self, query: Value[str]) -> AsyncGenerator["DatabaseCache", None]:
-        if not isinstance(query.value, str):
-            raise ValueError("Query must be a string")
-
+    async def load(
+        self, query: Value[str], **kwargs
+    ) -> AsyncGenerator["DatabaseCache", None]:
         result = await self.database.query(query.value, **self.db_query_args)
         new_data = self.value.copy()
 

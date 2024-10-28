@@ -1,12 +1,12 @@
 from typing import Type, TypeVar, Union
 
-from pydantic import BaseModel
-
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.gist_module import GistModule
+from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
+
 
 class ReadAgentLLMEngine(AsyncLLMEngine):
     def __init__(
@@ -14,7 +14,7 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
         underlying_llm: AsyncLLMEngine,
         gist_module: GistModule,
         max_pages: int = 3,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.underlying_llm = underlying_llm
@@ -27,16 +27,16 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
     async def _get_gist_context(self, **kwargs) -> dict:
         # Get the main prompt/task from kwargs
         kwargs_clone = kwargs.copy()
-        if 'TASK' in kwargs_clone:
-            kwargs_clone['__USER_TASK'] = kwargs_clone.pop('TASK')
-            prompt_key = '__USER_TASK'
+        if "TASK" in kwargs_clone:
+            kwargs_clone["__USER_TASK"] = kwargs_clone.pop("TASK")
+            prompt_key = "__USER_TASK"
         else:
             prompt_key = list(kwargs_clone.keys())[-1]
 
         # Retrieve relevant pages from gists
         class RelevantPages(BaseModel):
             pages: list[int]
-        
+
         relevant_pages = await self.underlying_llm.query_object(
             RelevantPages,
             GISTS=self.gist_module.available_gists,
@@ -58,12 +58,7 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
             if len(target_pages) == self.max_pages:
                 break
 
-        for page in target_pages:
-            print("=== Retrieved page", page, '===')
-            print(self.gist_module.available_pages[page])
-            
         return [self.gist_module.available_pages[i] for i in target_pages]
-
 
     async def query_object(self, response_model: Type[T], **kwargs) -> T:
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}

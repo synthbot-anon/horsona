@@ -1,3 +1,4 @@
+import functools
 import json
 
 import pytest
@@ -14,11 +15,25 @@ load_dotenv()
 #     config = json.load(f)
 #     engines = engines_from_config(config)
 
+
+class FixtureFunctionWrapper:
+    def __init__(self, name, obj):
+        self.__name__ = name
+        self.obj = obj
+
+    def __call__(self):
+        return self.obj
+
+
 load_llm_engines()
 for key, engine in llm_engines.items():
-    globals()[key] = pytest.fixture(scope="session", autouse=False)(lambda: engine)
+    globals()[key] = pytest.fixture(scope="session", autouse=False)(
+        FixtureFunctionWrapper(key, engine)
+    )
 
 
 load_indices()
 for key, index in indices.items():
-    globals()[key] = pytest.fixture(scope="session", autouse=False)(lambda: index)
+    globals()[key] = pytest.fixture(scope="session", autouse=False)(
+        FixtureFunctionWrapper(key, index)
+    )

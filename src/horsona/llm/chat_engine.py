@@ -44,15 +44,21 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         return parse_block_response(block_type, response)
 
     async def query_continuation(self, prompt: str, **kwargs) -> str:
+        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
+        api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
+
+        prompt = await compile_user_prompt(**prompt_args)
+
         response = await self.query(
             messages=[
+                {"role": "user", "content": prompt},
                 {"role": "assistant", "content": prompt},
                 {
                     "role": "user",
                     "content": "Please continue. Just the continuation, nothing else.",
                 },
             ],
-            **kwargs,
+            **api_args,
         )
 
         return response

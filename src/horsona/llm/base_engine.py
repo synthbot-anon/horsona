@@ -151,10 +151,16 @@ class TokenLimit(HorseData):
 
 
 class RateLimits(HorseData):
-    def __init__(self, limits: list[dict]):
+    def __init__(
+        self,
+        limits: list[dict],
+        call_limits: CallLimit = None,
+        token_limits: TokenLimit = None,
+    ):
         self.limits = limits
         self.call_limits: list[CallLimit] = []
         self.token_limits: list[TokenLimit] = []
+
         for rate_limit in limits:
             interval = rate_limit["interval"]
             calls = rate_limit.get("max_calls", None)
@@ -244,9 +250,11 @@ class AsyncLLMEngine(HorseData, ABC):
         original_query = self.query
 
         @functools.wraps(original_query)
-        async def wrapped_query(**kwargs):
+        async def wrapped_query(*args, **kwargs):
             await self.rate_limit.consume_call()
-            content, tokens_consumed = await original_query(**{**self.kwargs, **kwargs})
+            content, tokens_consumed = await original_query(
+                *args, **{**self.kwargs, **kwargs}
+            )
             self.rate_limit.report_tokens_consumed(tokens_consumed)
             return content
 

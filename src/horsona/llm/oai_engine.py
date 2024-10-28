@@ -17,7 +17,12 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
     async def create(self, **kwargs):
         ...
 
-    async def query(self, **kwargs):
+    async def query(self, prompt=None, **kwargs):
+        if prompt is not None:
+            kwargs.setdefault("messages", []).append(
+                {"role": "user", "content": prompt}
+            )
+
         response: ChatCompletion = await self.create(**kwargs)
         tokens_consumed = response.usage.total_tokens
 

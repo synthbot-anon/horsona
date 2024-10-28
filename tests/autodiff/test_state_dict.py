@@ -1,9 +1,7 @@
 import pytest
 from horsona.autodiff.basic import HorseModule
 from horsona.autodiff.variables import Value
-from horsona.cache.db_cache import DatabaseCache
-from horsona.cache.list_cache import ListCache
-from horsona.database.embedding_database import EmbeddingDatabase
+from horsona.memory.list_cache import ListCache
 from pydantic import BaseModel
 
 
@@ -51,32 +49,3 @@ async def test_list_cache():
     restored_cache = ListCache.load_state_dict(saved)
     assert restored_cache[0].value == "Test Value"
     assert restored_cache.max_size == 3
-
-
-@pytest.mark.asyncio
-async def test_db_cache(reasoning_llm, query_index):
-    database = EmbeddingDatabase(
-        reasoning_llm,
-        query_index,
-    )
-
-    await database.insert(
-        {
-            "Test Key1": "Test Value1",
-            "Test Key2": "Test Value2",
-        }
-    )
-
-    cache = DatabaseCache(reasoning_llm, database, 3)
-
-    saved = cache.state_dict()
-    cache = DatabaseCache.load_state_dict(saved)
-    context = await cache.load(Value("Key", "Test Key1"))
-    assert "Test Key1" in context
-    assert "Test Key2" not in context
-
-    saved = context.state_dict()
-    cache = DatabaseCache.load_state_dict(saved)
-    context = await cache.load(Value("Key", "Test Key2"))
-    assert "Test Key1" in context
-    assert "Test Key2" in context

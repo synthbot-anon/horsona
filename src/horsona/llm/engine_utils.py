@@ -231,7 +231,7 @@ async def _convert_to_dict(obj):
     elif isinstance(obj, (int, float, str, bool)):
         return obj
     else:
-        return await _convert_to_dict(await obj.json())
+        return await _convert_to_dict(await obj.json() if obj is not None else "None")
 
 
 def clean_json_string(json_str):
