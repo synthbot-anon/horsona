@@ -1,8 +1,8 @@
 from enum import StrEnum, auto
 from types import NoneType
-from typing import Any, Optional, TypeAlias, Union
+from typing import Any, Optional, Self, TypeAlias, Union
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 PrimitiveType: TypeAlias = NoneType | str | float | int | bool
 
@@ -80,6 +80,17 @@ class PostResourceRequest(BaseModel):
 class PostResourceResponse(BaseModel):
     id: Optional[int]
     result: Union[dict[str, Argument], Any]
+
+    @model_validator(mode="after")
+    def validate_result_matches_id(self) -> Self:
+        if self.id is not None:
+            assert isinstance(self.result, dict)
+            for value in self.result.values():
+                assert isinstance(value, Argument)
+        else:
+            assert isinstance(self.result, Argument)
+
+        return self
 
     @field_validator("result")
     @classmethod
