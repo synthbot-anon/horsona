@@ -2,7 +2,7 @@ import pytest
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
-from horsona.smarts.mece import MECEModule, MECEStructure
+from horsona.smarts.mece_module import MECEModule, MECEStructure
 
 
 @pytest.mark.asyncio
