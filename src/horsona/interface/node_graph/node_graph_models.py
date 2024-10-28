@@ -89,6 +89,7 @@ class PostResourceResponse(BaseModel):
                 assert isinstance(value, Argument)
         else:
             assert isinstance(self.result, Argument)
+            assert self.result.type != ArgumentType.NODE
 
         return self
 
