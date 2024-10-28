@@ -338,25 +338,30 @@ def unpack_argument(
 ) -> dict[str, Any]:
     if not isinstance(arg, Argument):
         return arg
-    if arg.type == "node":
+    if arg.type == ArgumentType.NODE:
         return _sessions[session_id].resource_id_to_node[arg.value].result_obj
-    elif arg.type in ("str", "float", "int", "bool"):
+    elif arg.type in (
+        ArgumentType.STR,
+        ArgumentType.FLOAT,
+        ArgumentType.INT,
+        ArgumentType.BOOL,
+    ):
         return arg.value
-    elif arg.type == "list":
+    elif arg.type == ArgumentType.LIST:
         return [
             unpack_argument(session_id, key + [i], item)
             for i, item in enumerate(arg.value)
         ]
-    elif arg.type == "dict":
+    elif arg.type == ArgumentType.DICT:
         return {
             k: unpack_argument(session_id, key + [k], v) for k, v in arg.value.items()
         }
-    elif arg.type == "tuple":
+    elif arg.type == ArgumentType.TUPLE:
         return tuple(
             unpack_argument(session_id, key + [i], item)
             for i, item in enumerate(arg.value)
         )
-    elif arg.type == "set":
+    elif arg.type == ArgumentType.SET:
         return {
             unpack_argument(session_id, key + [i], item)
             for i, item in enumerate(arg.value)
@@ -471,7 +476,7 @@ def obj_to_argument(
 def pack_result(session_id, result):
     processed_result = obj_to_argument(session_id, [], result, recurse=True)
 
-    if processed_result.type == "node":
+    if processed_result.type == ArgumentType.NODE:
         node = _sessions[session_id].resource_id_to_node[processed_result.value]
         node_id = node.id
         result_dict = node.result_dict

@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI, Response, status
 from fastapi.testclient import TestClient
 from horsona.interface import node_graph
-from horsona.interface.node_graph.node_graph_api import Argument
+from horsona.interface.node_graph.node_graph_api import Argument, ArgumentType
 from horsona.interface.node_graph.node_graph_models import (
     Argument,
     CreateSessionResponse,
@@ -46,8 +46,8 @@ async def test_post_resource(client):
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
-                "datatype": Argument(type="str", value="Some number"),
-                "value": Argument(type="float", value=1.0),
+                "datatype": Argument(type=ArgumentType.STR, value="Some number"),
+                "value": Argument(type=ArgumentType.FLOAT, value=1.0),
             },
         ).model_dump(),
     )
@@ -68,8 +68,10 @@ async def test_post_resource(client):
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
-                "datatype": Argument(type="str", value="Some number"),
-                "value": Argument(type="node", value=create_float_value_obj.id),
+                "datatype": Argument(type=ArgumentType.STR, value="Some number"),
+                "value": Argument(
+                    type=ArgumentType.NODE, value=create_float_value_obj.id
+                ),
             },
         ).model_dump(),
     )
@@ -88,7 +90,7 @@ async def test_post_resource(client):
             session_id=session_id,
             module_name=get_llm_engine.__module__,
             function_name=get_llm_engine.__name__,
-            kwargs={"name": Argument(type="str", value="reasoning_llm")},
+            kwargs={"name": Argument(type=ArgumentType.STR, value="reasoning_llm")},
         ).model_dump(),
     )
     assert create_llm_response.status_code == status.HTTP_200_OK
@@ -143,8 +145,8 @@ async def test_allowed_modules(client):
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
-                "datatype": Argument(type="str", value="Test"),
-                "value": Argument(type="float", value=1.0),
+                "datatype": Argument(type=ArgumentType.STR, value="Test"),
+                "value": Argument(type=ArgumentType.FLOAT, value=1.0),
             },
         ).model_dump(),
     )
@@ -160,8 +162,8 @@ async def test_allowed_modules(client):
             module_name="json",
             function_name="dumps",
             kwargs={
-                "obj": Argument(type="dict", value={"key": "value"}),
-                "indent": Argument(type="int", value=2),
+                "obj": Argument(type=ArgumentType.DICT, value={"key": "value"}),
+                "indent": Argument(type=ArgumentType.INT, value=2),
             },
         ).model_dump(),
     )
@@ -183,7 +185,7 @@ async def test_allowed_modules(client):
             session_id=custom_session_id,
             module_name=get_llm_engine.__module__,
             function_name=get_llm_engine.__name__,
-            kwargs={"name": Argument(type="str", value="reasoning_llm")},
+            kwargs={"name": Argument(type=ArgumentType.STR, value="reasoning_llm")},
         ).model_dump(),
     )
     assert create_llm_response.status_code == status.HTTP_200_OK
@@ -196,8 +198,8 @@ async def test_allowed_modules(client):
             module_name="json",
             function_name="dumps",
             kwargs={
-                "obj": Argument(type="dict", value={"key": "value"}),
-                "indent": Argument(type="int", value=2),
+                "obj": Argument(type=ArgumentType.DICT, value={"key": "value"}),
+                "indent": Argument(type=ArgumentType.INT, value=2),
             },
         ).model_dump(),
     )
@@ -210,8 +212,8 @@ async def test_allowed_modules(client):
             module_name="random",
             function_name="randint",
             kwargs={
-                "a": Argument(type="int", value=1),
-                "b": Argument(type="int", value=10),
+                "a": Argument(type=ArgumentType.INT, value=1),
+                "b": Argument(type=ArgumentType.INT, value=10),
             },
         ).model_dump(),
     )
@@ -255,8 +257,8 @@ async def test_session_timeout(client):
             class_name="Value",
             function_name="__init__",
             kwargs={
-                "datatype": Argument(type="str", value="test"),
-                "value": Argument(type="float", value=1.0),
+                "datatype": Argument(type=ArgumentType.STR, value="test"),
+                "value": Argument(type=ArgumentType.FLOAT, value=1.0),
             },
         ).model_dump(),
     )
@@ -274,8 +276,8 @@ async def test_session_timeout(client):
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
-                "datatype": Argument(type="str", value="test"),
-                "value": Argument(type="float", value=2.0),
+                "datatype": Argument(type=ArgumentType.STR, value="test"),
+                "value": Argument(type=ArgumentType.FLOAT, value=2.0),
             },
         ).model_dump(),
     )
@@ -305,8 +307,8 @@ async def test_session_timeout(client):
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
-                "datatype": Argument(type="str", value="test"),
-                "value": Argument(type="float", value=3.0),
+                "datatype": Argument(type=ArgumentType.STR, value="test"),
+                "value": Argument(type=ArgumentType.FLOAT, value=3.0),
             },
         ).model_dump(),
     )
@@ -335,8 +337,8 @@ async def test_list_resources(client):
             class_name=Value.__name__,
             function_name="__init__",
             kwargs={
-                "datatype": Argument(type="str", value="Test Value"),
-                "value": Argument(type="float", value=42.0),
+                "datatype": Argument(type=ArgumentType.STR, value="Test Value"),
+                "value": Argument(type=ArgumentType.FLOAT, value=42.0),
             },
         ).model_dump(),
     )
@@ -344,9 +346,9 @@ async def test_list_resources(client):
     create_value_obj = PostResourceResponse(**create_value_response.json())
 
     # Verify the created Value object
-    assert create_value_obj.result["datatype"].type == "str"
+    assert create_value_obj.result["datatype"].type == ArgumentType.STR
     assert create_value_obj.result["datatype"].value == "Test Value"
-    assert create_value_obj.result["value"].type == "float"
+    assert create_value_obj.result["value"].type == ArgumentType.FLOAT
     assert create_value_obj.result["value"].value == 42.0
 
     # List resources

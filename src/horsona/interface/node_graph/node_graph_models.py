@@ -1,7 +1,8 @@
+from enum import StrEnum, auto
 from types import NoneType
-from typing import Any, Literal, Optional, TypeAlias
+from typing import Any, Optional, TypeAlias, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 PrimitiveType: TypeAlias = NoneType | str | float | int | bool
 
@@ -14,20 +15,22 @@ ValueType: TypeAlias = (
 )
 
 
+class ArgumentType(StrEnum):
+    NONE = auto()
+    UNSUPPORTED = auto()
+    STR = auto()
+    FLOAT = auto()
+    INT = auto()
+    BOOL = auto()
+    LIST = auto()
+    DICT = auto()
+    TUPLE = auto()
+    SET = auto()
+    NODE = auto()
+
+
 class Argument(BaseModel):
-    type: Literal[
-        "none",
-        "unsupported",
-        "str",
-        "float",
-        "int",
-        "bool",
-        "list",
-        "dict",
-        "tuple",
-        "set",
-        "node",
-    ]
+    type: ArgumentType
     value: ValueType
 
 
@@ -76,4 +79,14 @@ class PostResourceRequest(BaseModel):
 
 class PostResourceResponse(BaseModel):
     id: Optional[int]
-    result: dict[str, Argument] | Any
+    result: Union[dict[str, Argument], Any]
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, v):
+        try:
+            # First attempt to validate as dictionary
+            return {k: Argument.model_validate(v) for k, v in v.items()}
+        except:
+            # If that fails, return as-is
+            return Argument.model_validate(v)
