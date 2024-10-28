@@ -1,18 +1,7 @@
 from enum import StrEnum, auto
-from types import NoneType
-from typing import Any, Optional, Self, TypeAlias, Union
+from typing import Any, Optional, Self, Union
 
 from pydantic import BaseModel, field_validator, model_validator
-
-PrimitiveType: TypeAlias = NoneType | str | float | int | bool
-
-ValueType: TypeAlias = (
-    PrimitiveType
-    | list[PrimitiveType]
-    | dict[str, PrimitiveType]
-    | tuple[PrimitiveType, ...]
-    | set[PrimitiveType]
-)
 
 
 class ArgumentType(StrEnum):
@@ -31,7 +20,43 @@ class ArgumentType(StrEnum):
 
 class Argument(BaseModel):
     type: ArgumentType
-    value: ValueType
+    value: Any
+
+    @model_validator(mode="after")
+    def validate(self) -> Self:
+        if self.type in (
+            ArgumentType.NONE,
+            ArgumentType.UNSUPPORTED,
+            ArgumentType.STR,
+            ArgumentType.FLOAT,
+            ArgumentType.INT,
+            ArgumentType.BOOL,
+        ):
+            pass
+        elif self.type == ArgumentType.LIST:
+            for i, x in enumerate(self.value):
+                if not isinstance(x, Argument):
+                    self.value[i] = Argument(**x)
+        elif self.type == ArgumentType.DICT:
+            for k, v in self.value.items():
+                if not isinstance(v, Argument):
+                    self.value[k] = Argument(**v)
+        elif self.type == ArgumentType.TUPLE:
+            new_tuple = []
+            for x in self.value:
+                if isinstance(x, Argument):
+                    new_tuple.append(x)
+                else:
+                    new_tuple.append(Argument(**x))
+        elif self.type == ArgumentType.SET:
+            new_set = set()
+            for x in self.value:
+                if isinstance(x, Argument):
+                    new_set.add(x)
+                else:
+                    new_set.add(Argument(**x))
+            self.value = new_set
+        return self
 
 
 class SessionInfo(BaseModel):
@@ -79,7 +104,7 @@ class PostResourceRequest(BaseModel):
 
 class PostResourceResponse(BaseModel):
     id: Optional[int]
-    result: Union[dict[str, Argument], Any]
+    result: Union[dict[str, Argument], Argument]
 
     @model_validator(mode="after")
     def validate_result_matches_id(self) -> Self:

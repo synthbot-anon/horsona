@@ -2,7 +2,6 @@ import asyncio
 import importlib
 import re
 from contextlib import asynccontextmanager
-from http import HTTPStatus
 from time import time
 from uuid import uuid4
 
@@ -24,7 +23,6 @@ class Resource(BaseModel):
     module_name: str
     class_name: str
     result_obj: Any
-    result_dict: Optional[dict[str, Argument]] = None
 
 
 class Session(BaseModel):
@@ -255,7 +253,9 @@ async def list_resources(session_id: str):
 
     resources = []
     for node in _sessions[session_id].resource_id_to_node.values():
-        node_id, result_dict = pack_result(session_id, node.result_obj)
+        node_id, result_dict = pack_result(
+            session_id, [], node.result_obj, recurse=True
+        )
         resources.append(
             ResourceResponse(
                 id=node_id,
@@ -320,7 +320,7 @@ async def get_resource(session_id: str, resource_id: int):
         )
 
     node: Resource = _sessions[session_id].resource_id_to_node[resource_id]
-    node_id, result_dict = pack_result(session_id, node.result_obj)
+    node_id, result_dict = pack_result(session_id, [], node.result_obj, recurse=True)
 
     return GetResourceResponse(
         id=node_id,
@@ -393,98 +393,81 @@ def create_obj_node(session_id: str, obj: Any) -> Resource:
     return node
 
 
-def obj_to_argument(
+def pack_result(
     session_id: str, key: list[str], obj: Any, recurse=True
-) -> Argument:
+) -> tuple[Optional[int], Argument | dict[str, Argument]]:
     if obj is None:
-        return Argument(type="none", value=None)
+        return None, Argument(type="none", value=None)
     elif isinstance(obj, (int, float, str, bool)):
-        return Argument(type=type(obj).__name__, value=obj)
+        return None, Argument(type=type(obj).__name__, value=obj)
     elif isinstance(obj, list):
         if recurse:
-            return Argument(
+            return None, Argument(
                 type="list",
                 value=[
-                    obj_to_argument(session_id, key + [i], item, recurse=False)
+                    pack_result(session_id, key + [i], item, recurse=False)[1]
                     for i, item in enumerate(obj)
                 ],
             )
         else:
-            return Argument(type="unsupported", value=None)
+            return None, Argument(type="unsupported", value=None)
     elif isinstance(obj, dict):
         if recurse:
-            return Argument(
+            return None, Argument(
                 type="dict",
                 value={
-                    k: obj_to_argument(session_id, key + [k], v, recurse=False)
+                    k: pack_result(session_id, key + [k], v, recurse=False)[1]
                     for k, v in obj.items()
                 },
             )
         else:
-            return Argument(type="unsupported", value=None)
+            return None, Argument(type="unsupported", value=None)
     elif isinstance(obj, tuple):
         if recurse:
-            return Argument(
+            return None, Argument(
                 type="tuple",
                 value=tuple(
-                    obj_to_argument(session_id, key + [i], item, recurse=False)
+                    pack_result(session_id, key + [i], item, recurse=False)[1]
                     for i, item in enumerate(obj)
                 ),
             )
         else:
-            return Argument(type="unsupported", value=None)
+            return None, Argument(type="unsupported", value=None)
     elif isinstance(obj, set):
         if recurse:
-            return Argument(
+            return None, Argument(
                 type="set",
                 value={
-                    obj_to_argument(session_id, key + [i], item, recurse=False)
+                    pack_result(session_id, key + [i], item, recurse=False)[1]
                     for i, item in enumerate(obj)
                 },
             )
         else:
-            return Argument(type="unsupported", value=None)
+            return None, Argument(type="unsupported", value=None)
     elif isinstance(obj, HorseData):
         if not recurse:
             node = create_obj_node(session_id, obj)
-            return Argument(type="node", value=node.id)
+            return node.id, Argument(type="node", value=node.id)
 
         result_node = create_obj_node(session_id, obj)
-        if result_node.result_dict is None:
-            result_dict = {}
-            for attr_name, attr_value in obj.__dict__.items():
-                if isinstance(obj, HorseVariable) and attr_name in (
-                    "predecessors",
-                    "name",
-                    "grad_fn",
-                ):
-                    continue
+        result_dict = {}
+        for attr_name, attr_value in obj.__dict__.items():
+            if isinstance(obj, HorseVariable) and attr_name in (
+                "predecessors",
+                "name",
+                "grad_fn",
+            ):
+                continue
 
-                else:
-                    result_dict[attr_name] = obj_to_argument(
-                        session_id, key + [attr_name], attr_value, recurse=False
-                    )
+            else:
+                result_dict[attr_name] = pack_result(
+                    session_id, key + [attr_name], attr_value, recurse=False
+                )[1]
 
-            result_node.result_dict = result_dict
-
-        return Argument(type="node", value=result_node.id)
+        return result_node.id, result_dict
 
     else:
-        return Argument(type="unsupported", value=None)
-
-
-def pack_result(session_id, result):
-    processed_result = obj_to_argument(session_id, [], result, recurse=True)
-
-    if processed_result.type == ArgumentType.NODE:
-        node = _sessions[session_id].resource_id_to_node[processed_result.value]
-        node_id = node.id
-        result_dict = node.result_dict
-    else:
-        node_id = None
-        result_dict = processed_result
-
-    return node_id, result_dict
+        return None, Argument(type="unsupported", value=None)
 
 
 @router.post("/sessions/{session_id}/resources", response_model=PostResourceResponse)
@@ -525,7 +508,7 @@ async def post_resource(session_id, request: PostResourceRequest):
         request.module_name, request.class_name, request.function_name, processed_kwargs
     )
 
-    node_id, result_dict = pack_result(session_id, result)
+    node_id, result_dict = pack_result(session_id, [], result, recurse=True)
 
     return PostResourceResponse(
         id=node_id,
