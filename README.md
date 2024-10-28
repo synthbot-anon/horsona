@@ -2,64 +2,157 @@
 Creating a realistic pony chatbot is very difficult. This repo will try to maintain an organized collection of features that a pony chatbot might need in the hopes that future chatbot developers will have a easier time with it.
 
 # Installation
-Install the repo to use it:
+Install the repo:
 ```bash
-pip install --upgrade git+https://github.com/synthbot-anon/horsona
-# Create a .env file in your project
-curl https://raw.githubusercontent.com/synthbot-anon/horsona/main/.env.example > /path/to/project/.env
-```
-
-Or install the repo for development:
-```bash
-pip install git+https://github.com/synthbot-anon/horsona
+# Clone the repo
 git clone git@github.com:synthbot-anon/horsona.git
+
+# Install dependencies
 cd horsona
 ./dev-install.sh
-# Start the dev environment
-poetry shell
-# Use the .env file in the horsona repo
-```
 
-Configure the environment variables in .env:
-```bash
-vim .env
-# Edit .env to include your API keys. Example:
-CEREBRAS_API_KEY="csk-xxxxxxxxxxxxxxxxxxxxxxxxx"
-FIREWORKS_API_KEY="fw_xxxxxxxxxxxxxxxxxxxxxxxxx"
-```
-
-Adjust the list of LLMs based on what you can use:
-```bash
+# Create the config files
+cp .env.example .env
 cp llm_config.json.example llm_config.json
-# This file contains a sample list of LLMs.
-# The names can be arbitrary, but it must define a "reasoning_llm".
-vim llm_config.json
+cp index_config.json.example index_config.json
+
+```
+
+Configure the environment variables in `.env`:
+```bash
+# Edit .env to include all of your API keys. Example:
+OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
 # Running samples
-Horsona is a library, not a chatbot application. So there's not a "main" method, and everything is run through tests and samples.
-The samples are simple demo applications you can configure with, e.g., custom chatbots. Copy and edit the relevant config files.
-For example:
-
-```bash
-cp samples/simple_chatbot/config.json.example config.json
-# Edit the config file
-vim config.json
-```
-
-Then run the sample app.
-
-```bash
-poetry run python samples/simple_chatbot/simple_chatbot.py
-```
+Check out the [samples/](https://github.com/synthbot-anon/horsona/tree/main/samples) directory for example applications built with Horsona. Each sample has its own README with setup and usage instructions.
 
 
 # Running tests
-Most tests are stochastic since LLMs tend to be stochastic, so they may sometimes fail.
+Most tests are stochastic since LLMs tend to be stochastic, so they may sometimes fail. Some tests may require additional configuration. If a test fails, check the README for that test to see if there are any additional steps you need to take. Most tests require the `llm_config.json` to include a `reasoning_llm` and the `index_config.json` to include a `query_index`.
+
 You can run tests using `pytest`. For example:
 ```bash
-# To run tests/test_llm.py...
-poetry run pytest tests/test_llm.py
+# Run tests/test_llm.py.
+poetry run pytest tests/llm/test_llm.py
+
+# Run all tests.
+poetry run pytest
+
+# Run tests in parallel.
+# You may run into API call limits doing this, so only use however many your API(s) will allow.
+poetry run pytest -n 4
+```
+
+# Using a different LLM API
+1. Edit `.env` to include your new LLM's API key(s).
+2. Edit `llm_config.json` to use your new LLM(s). Supported "types" include:
+   - AsyncCerebrasEngine
+   - AsyncGroqEngine
+   - AsyncFireworksEngine
+   - AsyncOpenAIEngine
+   - AsyncAnthropicEngine
+   - AsyncTogetherEngine
+   - AsyncPerplexityEngine
+
+# Using multiple LLM APIs simultaneously (for speed)
+1. Edit `.env` to include API keys for your additional LLMs.
+2. Edit `llm_config.json` to include your LLMs each with a unique key.
+3. Define a `reasoning_llm` in `llm_config.json` that uses the `MultiEngine` type with each LLM as an engine. Example:
+
+```json
+[
+  {
+    "cerebras_llama31_70b": {
+      "type": "AsyncCerebrasEngine",
+      "model": "llama3.1-70b",
+      "rate_limits": [
+        {"interval": 1, "max_calls": 3, "max_tokens": 240000},
+        {"interval": 60, "max_calls": 120, "max_tokens": 240000},
+        {"interval": 3600, "max_calls": 2600, "max_tokens": 4000000},
+        {"interval": 86400, "max_calls": 57600, "max_tokens": 4000000}
+      ]
+    }
+  },
+  {
+    "fireworks_llama31_70b": {
+      "type": "AsyncFireworksEngine",
+      "model": "accounts/fireworks/models/llama-v3p1-70b-instruct",
+      "rate_limits": [
+        {"interval": 1, "max_calls": 3, "max_tokens": null},
+        {"interval": 60, "max_calls": 600, "max_tokens": null}
+      ]
+    }
+  },
+  {
+    "openai_gpt4o_mini": {
+      "type": "AsyncOpenAIEngine",
+      "model": "gpt-4o-mini",
+      "rate_limits": [
+        {"interval": 60, "max_calls": 500, "max_tokens": 200000},
+        {"interval": 86400, "max_calls": 10000, "max_tokens": null}
+      ]
+    }
+  },
+  {
+    "anthropic_claude3_haiku": {
+      "type": "AsyncAnthropicEngine",
+      "model": "claude-3-haiku-20240307",
+      "rate_limits": [
+        {"interval": 60, "max_calls": 50, "max_tokens": 50000},
+        {"interval": 86400, "max_calls": null, "max_tokens": 5000000}
+      ]
+    }
+  },
+  {
+    "reasoning_llm": {
+      "type": "MultiEngine",
+      "engines": [
+        "cerebras_llama31_70b",
+        "fireworks_llama31_70b",
+        "openai_gpt4o_mini",
+        "anthropic_claude3_haiku"
+      ]
+    }
+  }
+]
+```
+
+# Using Ollama instead of OpenAI for embeddings
+1. Run Ollama.
+
+```bash
+docker run -d --rm -e OLLAMA_HOST=0.0.0.0:11434 -v "ollama:/root/.ollama" -p 11434:11434 --name ollama ollama/ollama
+```
+
+> Note: You can stop Ollama with the following command: \
+> Stop gracefully: `docker container kill ollama` \
+> Stop forcefully: `docker container rm -f ollama`
+
+
+2. Load an embedding model into Ollama.
+
+```powershell
+docker exec ollama ollama pull imcurie/bge-large-en-v1.5
+```
+
+> Note: You can remove the model with the following command: \
+> Remove a single model: `docker exec ollama ollama rm imcurie/bge-large-en-v1.5` \
+> Remove all ollama data: `docker volume rm ollama # remove all ollama data`
+
+3. Replace `index_config.json` with the following:
+
+```text
+  {
+    "query_index": {
+      "type": "HnswEmbeddingIndex",
+      "embedding": {
+        "type": "OllamaEmbeddingModel",
+        "model": "imcurie/bge-large-en-v1.5"
+      }
+    }
+  }
+]
 ```
 
 # Contributing
