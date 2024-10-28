@@ -60,7 +60,7 @@ class GistModule(HorseModule):
         return Value("Summary", page_summary, predecessors=[page])
 
 
-def paginate(text, max_chars_per_page):
+def paginate(text, max_chars_per_page, paragraph_split="\n\n"):
     """
     Split text into pages while trying to maintain readability by avoiding breaks within
     paragraphs, sentences, and words when possible.
@@ -73,7 +73,7 @@ def paginate(text, max_chars_per_page):
         list[str]: List of pages, where each page is a string
     """
     # Split text into paragraphs (assuming paragraphs are separated by double newlines)
-    paragraphs = text.split("\n\n")
+    paragraphs = text.split(paragraph_split)
 
     # Helper function to calculate cost of splitting at a particular point
     def split_cost(start, end):
@@ -128,7 +128,7 @@ def paginate(text, max_chars_per_page):
     current = 0
     while current < n:
         next_split = splits[current]
-        page_content = "\n\n".join(paragraphs[current:next_split]).strip()
+        page_content = paragraph_split.join(paragraphs[current:next_split]).strip()
         pages.append(page_content)
         current = next_split
 
