@@ -143,6 +143,7 @@ docker exec ollama ollama pull imcurie/bge-large-en-v1.5
 3. Replace `index_config.json` with the following:
 
 ```text
+[
   {
     "query_index": {
       "type": "HnswEmbeddingIndex",
