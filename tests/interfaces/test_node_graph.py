@@ -453,7 +453,7 @@ async def test_backpropagation(client):
             kwargs={
                 "arg": Argument(type=ArgumentType.NODE, value=extract_name_obj.id),
                 "loss": Argument(
-                    type=ArgumentType.STR, value="The name should have been Celestia"
+                    type=ArgumentType.STR, value="The name should be Celestia"
                 ),
             },
         ).model_dump(),
@@ -472,7 +472,7 @@ async def test_backpropagation(client):
                 "arg": Argument(type=ArgumentType.NODE, value=extract_name_obj.id),
                 "loss": Argument(
                     type=ArgumentType.STR,
-                    value="They should have been addressed as Princess",
+                    value="They should be addressed as Princess",
                 ),
             },
         ).model_dump(),
