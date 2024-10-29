@@ -33,6 +33,7 @@ def load_indices() -> dict[str, BaseIndex]:
                 raise ValueError(f"Unknown index type: {index_type}")
 
     _loaded_indices = True
+    return indices
 
 
 def embedding_model_from_config(config: dict):

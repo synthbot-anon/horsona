@@ -85,6 +85,7 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
                 raise ValueError(f"Unknown engine type: {engine_type}")
 
     _loaded_engines = True
+    return engines
 
 
 class CallLimit(HorseData):

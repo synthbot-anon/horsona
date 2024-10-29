@@ -226,7 +226,7 @@ async def _convert_to_dict(obj):
         return obj.model_dump()
     elif isinstance(obj, dict):
         return {k: await _convert_to_dict(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
+    elif isinstance(obj, (list, tuple)):
         return [await _convert_to_dict(v) for v in obj]
     elif isinstance(obj, (int, float, str, bool)):
         return obj

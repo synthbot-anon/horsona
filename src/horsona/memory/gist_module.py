@@ -18,6 +18,7 @@ class GistModule(HorseModule):
     def __init__(
         self,
         llm: AsyncLLMEngine,
+        guidelines: Value[str] | None = None,
         available_gists: list[Value[str]] = None,
         available_pages: list[Value[str]] = None,
         **kwargs,
@@ -31,6 +32,13 @@ class GistModule(HorseModule):
         """
         super().__init__(**kwargs)
         self.llm = llm
+        if guidelines is not None:
+            self.guidelines = guidelines
+        else:
+            self.guidelines = Value(
+                "guidelines",
+                "Include enough context to understand the page in isolation.",
+            )
 
         self.available_gists = available_gists if available_gists is not None else []
         self.available_pages = available_pages if available_pages is not None else []
@@ -50,8 +58,9 @@ class GistModule(HorseModule):
             "text",
             CONTEXT=kwargs,
             PREVIOUS_PAGE=self.available_gists[-1] if self.available_gists else None,
+            GUIDELINES=self.guidelines,
             CURRENT_PAGE=page,
-            TASK="Please shorten the provided CURRENT_PAGE. Include enough context to understand the page in isolation.",
+            TASK="Please shorten the provided CURRENT_PAGE. Follow the GUIDELINES.",
         )
 
         self.available_gists.append(page_summary)
