@@ -50,15 +50,17 @@ class ListModule(HorseModule, Generic[T]):
         Returns:
             T: The appended item
         """
+
+        self.items.append(item)
+
         if self.item_lengths is None:
             item_prompts = await asyncio.gather(
                 *[compile_user_prompt(ITEM=item) for item in self.items]
             )
             self.item_lengths = [len(prompt) for prompt in item_prompts]
-
-        item_length = len(await compile_user_prompt(ITEM=item))
-        self.items.append(item)
-        self.item_lengths.append(item_length)
+        else:
+            item_length = len(await compile_user_prompt(ITEM=item))
+            self.item_lengths.append(item_length)
 
         while sum(self.item_lengths) > self.max_length:
             self.items.pop(0)
