@@ -1,7 +1,7 @@
 import pytest
 from horsona.autodiff.basic import HorseModule
 from horsona.autodiff.variables import Value
-from horsona.memory.list_cache import ListCache
+from horsona.memory.list_cache import ListModule
 from pydantic import BaseModel
 
 
@@ -43,9 +43,9 @@ async def test_module(reasoning_llm):
 
 @pytest.mark.asyncio
 async def test_list_cache():
-    cache = ListCache(3, [Value("Text", "Test Value")])
+    cache = ListModule(3, [Value("Text", "Test Value")])
     saved = cache.state_dict()
 
-    restored_cache = ListCache.load_state_dict(saved)
+    restored_cache = ListModule.load_state_dict(saved)
     assert restored_cache[0].value == "Test Value"
     assert restored_cache.max_size == 3
