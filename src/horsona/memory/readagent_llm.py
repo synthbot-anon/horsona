@@ -41,17 +41,13 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
             RelevantPages,
             GISTS=self.gist_module.available_gists,
             **kwargs_clone,
-            MAX_PAGES=self.max_pages,
             TASK=(
-                f"You are trying to understand the given {prompt_key}. "
-                "You have access to a list of available gists and pages. "
-                f"If the GISTS are sufficient to understand the given {prompt_key}, return an empty list. "
-                f"Otherwise, select up to MAX_PAGES pages required to give you enough context to understand the {prompt_key}. "
+                "You have access to a list of available gists and pages in GISTS. "
+                f"Select 0 to {self.max_pages} items that are relevant to the {prompt_key}. "
             ),
         )
 
         target_pages = []
-        print("retreiving pages", relevant_pages.pages)
         for i in reversed(sorted(relevant_pages.pages)):
             if i > 0 and i < len(self.gist_module.available_pages):
                 target_pages.append(i)

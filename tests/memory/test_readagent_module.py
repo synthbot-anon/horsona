@@ -73,15 +73,22 @@ from horsona.memory.gist_module import GistModule, paginate
 from horsona.memory.readagent_llm import ReadAgentLLMEngine
 from pydantic import BaseModel
 
+_readagent_llm = None
+
 
 @pytest.fixture
 async def readagent_llm(reasoning_llm):
+    global _readagent_llm
+
+    if _readagent_llm is not None:
+        return _readagent_llm
+
     gist_module = GistModule(reasoning_llm)
     for page in paginate(STORY_TEXT, max_chars_per_page=1500):
-        gist = await gist_module.append(page)
-        print(gist.value)
-        print()
-    return ReadAgentLLMEngine(reasoning_llm, gist_module, max_pages=2)
+        await gist_module.append(page)
+
+    _readagent_llm = ReadAgentLLMEngine(reasoning_llm, gist_module, max_pages=2)
+    return _readagent_llm
 
 
 @pytest.mark.asyncio
@@ -91,7 +98,6 @@ async def test_query_block(readagent_llm):
         PROMPT="What is Ashley supposed to do with the game?",
     )
 
-    print(response)
     assert (
         "figure out" in response.lower()
         or "determine" in response.lower()
@@ -110,7 +116,6 @@ async def test_query_object(readagent_llm):
         PROMPT="Who wrote the paper that Ashley received from her professor?",
     )
 
-    print(response)
     assert isinstance(response, Response)
     assert "hanna" in response.author.lower() or "hofvarpnir" in response.author.lower()
 
