@@ -2,27 +2,7 @@
 Creating a realistic pony chatbot is very difficult. This repo will try to maintain an organized collection of features that a pony chatbot might need in the hopes that future chatbot developers will have a easier time with it.
 
 # Prerequisites
-
-## Poetry
-* [Pipx](https://pipx.pypa.io/stable/installation/)
-* [Poetry 1.7+](https://python-poetry.org/docs/)
-    * [StackOverflow](https://stackoverflow.com/questions/70003829/poetry-installed-but-poetry-command-not-found): you might have to manually set some `$PATH` environment variables
-
-## Python 3.11
-* [Python 3.11](https://www.python.org/downloads/)
-* [StackOverflow](https://askubuntu.com/questions/1512005/python3-11-install-on-ubuntu-24-04): Python 3.11 may not be available directly through official Ubuntu releases.
-* You may have to manually set the poetry environment:
-      ```bash
-      $ poetry env use /usr/bin/python3.11
-      ```
-
-## Pytest
-* [Pip](https://pip.pypa.io/en/stable/installation/) and 
-* [Pytest](https://docs.pytest.org/en/stable/getting-started.html)
-
-## Dotenv
-* [Pip3](https://docs.python.org/3/installing/index.html)
-* [Dotenv](https://pypi.org/project/python-dotenv/)
+Make sure Poetry and Python 3.11 are installed. Check [help/prerequisites.md](https://github.com/synthbot-anon/horsona/tree/main/help/prerequisites.md) if you need help with this.
 
 # Installation
 Install the repo:
