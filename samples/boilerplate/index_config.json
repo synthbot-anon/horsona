@@ -1,0 +1,11 @@
+[
+  {
+    "query_index": {
+      "type": "HnswEmbeddingIndex",
+      "embedding": {
+        "type": "OpenAIEmbeddingModel",
+        "model": "text-embedding-3-small"
+      }
+    }
+  }
+]

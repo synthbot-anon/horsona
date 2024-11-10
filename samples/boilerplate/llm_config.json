@@ -1,0 +1,12 @@
+[
+  {
+    "reasoning_llm": {
+      "type": "AsyncOpenAIEngine",
+      "model": "gpt-4o-mini",
+      "rate_limits": [
+        {"interval": 60, "max_calls": 500, "max_tokens": 200000},
+        {"interval": 86400, "max_calls": 10000, "max_tokens": null}
+      ]
+    }
+  }
+]
