@@ -16,7 +16,9 @@ cd horsona
 
 Configure the environment variables in `.env`:
 ```bash
-# Edit .env to include all of your API keys. Example:
+# Edit .env to include all of your API keys.
+# The default config requires an OpenAI API key.
+# Example:
 OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
