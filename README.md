@@ -2,20 +2,16 @@
 Creating a realistic pony chatbot is very difficult. This repo will try to maintain an organized collection of features that a pony chatbot might need in the hopes that future chatbot developers will have a easier time with it.
 
 # Installation
+Install poetry using the instructions from [python-poetry/install.python-poetry](https://github.com/python-poetry/install.python-poetry.org).
+
 Install the repo:
 ```bash
 # Clone the repo
 git clone git@github.com:synthbot-anon/horsona.git
 
-# Install dependencies
+# Install dependencies and create the config files
 cd horsona
 ./dev-install.sh
-
-# Create the config files
-cp .env.example .env
-cp llm_config.json.example llm_config.json
-cp index_config.json.example index_config.json
-
 ```
 
 Configure the environment variables in `.env`:
