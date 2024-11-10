@@ -3,7 +3,6 @@
 projroot=$(dirname "$(readlink -f $0)")
 cd "$projroot"
 
-rm poetry.lock
 poetry install
 
 # Check if .env file exists
