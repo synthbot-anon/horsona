@@ -164,7 +164,7 @@ docker exec ollama ollama pull imcurie/bge-large-en-v1.5
 2. Post in the thread to claim an issue. You can optionally include your github account in the post so I know whom to assign the issue to.
 3. If you're implementing new functionality, create a new folder in `src/horsona/contributions` and `tests/contributions` folders, and put your code there. Make sure to add at least one test case so it's clear how to use your code.
 4. Make sure your code works with `poetry run pytest path/to/test/file.py`. If you're modifying something outside of `contributions`, make sure to run the relevant tests.
-5. If you have a github account, submit a pull request. Otherwise, post your code somehow in the thread.
+5. If you have a github account, fork the repo and create a pull request ([instructions](https://gist.github.com/Chaser324/ce0505fbed06b947d962)). Otherwise, post your code somehow in the thread.
 
 # Target feature list
 This target feature list is incomplete:
