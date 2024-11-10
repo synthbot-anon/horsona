@@ -1,24 +1,49 @@
 # Horsona: The Swiss Army Knife of Pony Chatbot Creation
 Creating a realistic pony chatbot is very difficult. This repo will try to maintain an organized collection of features that a pony chatbot might need in the hopes that future chatbot developers will have a easier time with it.
 
-# Installation
-Install poetry using the instructions from [python-poetry/install.python-poetry](https://github.com/python-poetry/install.python-poetry.org).
+# Prerequisites
 
+## Poetry
+* [Pipx](https://pipx.pypa.io/stable/installation/)
+* [Poetry 1.7+](https://python-poetry.org/docs/)
+    * [StackOverflow](https://stackoverflow.com/questions/70003829/poetry-installed-but-poetry-command-not-found): you might have to manually set some `$PATH` environment variables
+
+## Python 3.11
+* [Python 3.11](https://www.python.org/downloads/)
+* [StackOverflow](https://askubuntu.com/questions/1512005/python3-11-install-on-ubuntu-24-04): Python 3.11 may not be available directly through official Ubuntu releases.
+* You may have to manually set the poetry environment:
+      ```bash
+      $ poetry env use /usr/bin/python3.11
+      ```
+
+## Pytest
+* [Pip](https://pip.pypa.io/en/stable/installation/) and 
+* [Pytest](https://docs.pytest.org/en/stable/getting-started.html)
+
+## Dotenv
+* [Pip3](https://docs.python.org/3/installing/index.html)
+* [Dotenv](https://pypi.org/project/python-dotenv/)
+
+# Installation
 Install the repo:
 ```bash
 # Clone the repo
 git clone git@github.com:synthbot-anon/horsona.git
 
-# Install dependencies and create the config files
+# Install dependencies
 cd horsona
 ./dev-install.sh
+
+# Create the config files
+cp .env.example .env
+cp llm_config.json.example llm_config.json
+cp index_config.json.example index_config.json
+
 ```
 
 Configure the environment variables in `.env`:
 ```bash
-# Edit .env to include all of your API keys.
-# The default config requires an OpenAI API key.
-# Example:
+# Edit .env to include all of your API keys. Example:
 OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
