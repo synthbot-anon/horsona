@@ -10,15 +10,9 @@ Install the repo:
 # Clone the repo
 git clone git@github.com:synthbot-anon/horsona.git
 
-# Install dependencies
+# Install dependencies & create config files
 cd horsona
 ./dev-install.sh
-
-# Create the config files
-cp .env.example .env
-cp llm_config.json.example llm_config.json
-cp index_config.json.example index_config.json
-
 ```
 
 Configure the environment variables in `.env`:
