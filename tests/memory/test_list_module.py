@@ -1,4 +1,5 @@
 import pytest
+
 from horsona.autodiff.variables import Value
 from horsona.llm.engine_utils import compile_user_prompt
 from horsona.memory.list_module import ListModule
@@ -9,7 +10,7 @@ async def test_list_module_max_length():
     # Create list module with max length of 20
     single_item_length = len(await compile_user_prompt(ITEM=Value("Text", "xxxxx")))
     max_length = single_item_length * 4
-    list_module = ListModule(max_length=max_length)
+    list_module = ListModule(max_length=max_length, min_item_length=0)
 
     # Add items that will exceed max length
     await list_module.append(Value("Text", "12345"))  # Length 5
@@ -30,7 +31,7 @@ async def test_list_module_max_length():
 
 @pytest.mark.asyncio
 async def test_list_module_clear():
-    list_module = ListModule()
+    list_module = ListModule(min_item_length=0)
     await list_module.append(Value("Text", "test1"))
     await list_module.append(Value("Text", "test2"))
 
@@ -38,7 +39,7 @@ async def test_list_module_clear():
 
     list_module.clear()
     assert len(list_module.items) == 0
-    assert list_module.item_lengths is None
+    assert list_module.item_lengths == []
 
 
 @pytest.mark.asyncio
@@ -59,9 +60,8 @@ async def test_list_module_get_items():
 @pytest.mark.asyncio
 async def test_list_module_init_with_items():
     items = [Value("Text", "test1"), Value("Text", "test2")]
-    list_module = ListModule(items=items, max_length=100)
+    list_module = ListModule(max_length=100, min_item_length=0, items=items)
 
     assert len(list_module.items) == 2
     assert list_module.items[0].value == "test1"
     assert list_module.max_length == 100
-    assert list_module.item_lengths is None  # Should be computed on first append

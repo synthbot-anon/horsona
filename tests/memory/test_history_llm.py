@@ -1,8 +1,9 @@
 import pytest
+from pydantic import BaseModel
+
 from horsona.autodiff.variables import Value
 from horsona.memory.history_llm import HistoryLLMEngine
 from horsona.memory.list_module import ListModule
-from pydantic import BaseModel
 
 
 @pytest.fixture
@@ -56,5 +57,5 @@ async def test_load_history_llm(reasoning_llm, history_llm):
     assert isinstance(restored, HistoryLLMEngine)
     assert isinstance(restored.underlying_llm, type(reasoning_llm))
     assert isinstance(restored.history_module, ListModule)
-    assert len(restored.history_module.items) == 1
-    assert restored.history_module.items[0].value == "Test history item"
+    assert len(restored.history_module.get_items()) == 1
+    assert restored.history_module.get_items()[0].value == "Test history item"
