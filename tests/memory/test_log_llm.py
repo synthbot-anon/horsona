@@ -1,9 +1,8 @@
 import pytest
-from pydantic import BaseModel
-
 from horsona.autodiff.variables import Value
 from horsona.memory.log_llm import LogLLMEngine
 from horsona.memory.log_module import LogModule
+from pydantic import BaseModel
 
 STORY_PARAGRAPHS = """
 Mr. Peterson had flown to Hofvarpnir’s offices in Berlin. He had introduced himself as “a vice president,” and proceeded to give a dry presentation on Hasbro’s current strategy. “Toy sales aren’t flat, but our stock isn’t going to double again like it did in the early 2000s if we only sell plastic to children. We have to adapt to the market and that means video games and IP licenses. Our previous forays into video games have been a bit disappointing, so we’re going to license the IP to people who have a track record for excellence,” he said, with contentless slides in the background.
@@ -38,9 +37,7 @@ async def test_query_with_story_context(log_llm, log_module):
 
 
 @pytest.mark.asyncio
-async def test_query_object_with_story_context(
-    log_llm, log_module
-):
+async def test_query_object_with_story_context(log_llm, log_module):
     class Response(BaseModel):
         department: str
 

@@ -1,5 +1,4 @@
 import pytest
-
 from horsona.autodiff.variables import ListValue, Value
 from horsona.memory.list_module import ListModule
 from horsona.memory.log_module import LogModule
@@ -8,9 +7,7 @@ from horsona.memory.log_module import LogModule
 @pytest.fixture
 async def log_module(reasoning_llm):
     recent_messages_module = ListModule(min_item_length=0)
-    return LogModule(
-        reasoning_llm, recent_messages_module=recent_messages_module
-    )
+    return LogModule(reasoning_llm, recent_messages_module=recent_messages_module)
 
 
 @pytest.mark.asyncio
