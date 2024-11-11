@@ -1,8 +1,9 @@
 import pytest
+from pydantic import BaseModel
+
 from horsona.autodiff.functions import extract_object
 from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
-from pydantic import BaseModel
 
 
 @pytest.mark.asyncio

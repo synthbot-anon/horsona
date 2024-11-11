@@ -1,6 +1,7 @@
 import pytest
-from horsona.llm.base_engine import AsyncLLMEngine
 from pydantic import BaseModel
+
+from horsona.llm.base_engine import AsyncLLMEngine
 
 
 @pytest.mark.asyncio

@@ -1,8 +1,9 @@
 import pytest
+from pydantic import BaseModel
+
 from horsona.autodiff.variables import Value
 from horsona.memory.history_llm import HistoryLLMEngine
 from horsona.memory.list_module import ListModule
-from pydantic import BaseModel
 
 
 @pytest.fixture

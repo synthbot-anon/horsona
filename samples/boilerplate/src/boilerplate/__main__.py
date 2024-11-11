@@ -1,6 +1,7 @@
 import asyncio
 
 from dotenv import load_dotenv
+
 from horsona.index import load_indices
 from horsona.llm import load_engines
 

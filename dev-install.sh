@@ -20,3 +20,6 @@ if [ ! -f index_config.json ]; then
     cp index_config.json.example index_config.json
     echo "The default embedding API (OpenAI) is slow. Check the README for how to use Ollama embeddings."
 fi
+
+echo "Installing pre-commit hooks"
+pre-commit install

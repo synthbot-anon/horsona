@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from fastapi import FastAPI, Response, status
 from fastapi.testclient import TestClient
+
 from horsona.autodiff.variables import Value
 from horsona.interface import node_graph
 from horsona.interface.node_graph.node_graph_api import Argument, ArgumentType
@@ -367,8 +368,9 @@ async def test_list_resources(client):
 
 
 async def extract_pony_name(llm: AsyncLLMEngine, text: Value[str]):
-    from horsona.autodiff.functions import extract_object
     from pydantic import BaseModel
+
+    from horsona.autodiff.functions import extract_object
 
     class PonyName(BaseModel):
         name: str

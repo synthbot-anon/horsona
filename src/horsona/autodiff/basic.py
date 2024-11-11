@@ -189,15 +189,15 @@ GradContext = defaultdict[HorseVariable, list[HorseGradient]]
 
 
 @overload
-def horsefunction(func: Callable[P, Generator[T, GradContext, None]]) -> Callable[P, T]:
-    ...
+def horsefunction(
+    func: Callable[P, Generator[T, GradContext, None]],
+) -> Callable[P, T]: ...
 
 
 @overload
 def horsefunction(
     func: Callable[P, AsyncGenerator[T, GradContext]],
-) -> Callable[P, Awaitable[T]]:
-    ...
+) -> Callable[P, Awaitable[T]]: ...
 
 
 def horsefunction(

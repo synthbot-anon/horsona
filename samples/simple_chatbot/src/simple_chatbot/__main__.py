@@ -4,6 +4,8 @@ import sys
 
 import aiofiles
 from dotenv import load_dotenv
+from pydantic import BaseModel
+
 from horsona.autodiff.variables import Value
 from horsona.cache.db_cache import DatabaseCache
 from horsona.cache.list_cache import ListCache
@@ -11,7 +13,6 @@ from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.index import indices_from_config
 from horsona.io.reader import ReaderModule
 from horsona.llm import engines_from_config
-from pydantic import BaseModel
 
 # Load API keys from .env file
 load_dotenv(".env")

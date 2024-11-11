@@ -1,9 +1,10 @@
 import pytest
+from pydantic import BaseModel
+
 from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.index.base_index import BaseIndex
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.embedding_llm import EmbeddingLLMEngine
-from pydantic import BaseModel
 
 SAMPLE_DATA = {
     "What is James shown?": "James is shown the Earth pony creation screen",

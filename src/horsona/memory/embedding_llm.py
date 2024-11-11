@@ -1,5 +1,7 @@
 from typing import AsyncGenerator, Type, TypeVar, Union
 
+from pydantic import BaseModel
+
 from horsona.autodiff.basic import GradContext, horsefunction
 from horsona.autodiff.variables import Value
 from horsona.database.base_database import Database
@@ -11,7 +13,6 @@ from horsona.llm.engine_utils import (
     parse_block_response,
     parse_obj_response,
 )
-from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])

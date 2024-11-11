@@ -14,8 +14,7 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
         super().__init__(**kwargs)
 
     @abstractmethod
-    async def create(self, **kwargs):
-        ...
+    async def create(self, **kwargs): ...
 
     async def query(self, prompt=None, **kwargs):
         if prompt is not None:

@@ -1,8 +1,9 @@
 from typing import Type, TypeVar, Union
 
+from pydantic import BaseModel
+
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.list_module import ListModule
-from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])

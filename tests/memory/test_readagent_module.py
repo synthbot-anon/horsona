@@ -68,10 +68,11 @@ Ashley brewed herself a cup of tea, and brought it over along with some scrap pa
 
 
 import pytest
+from pydantic import BaseModel
+
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.gist_module import GistModule, paginate
 from horsona.memory.readagent_llm import ReadAgentLLMEngine
-from pydantic import BaseModel
 
 _readagent_llm = None
 
