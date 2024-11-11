@@ -168,7 +168,7 @@ This target feature list is incomplete:
 - <span style="color: yellow;">[Missing tests]</span> Automated character card adjustments
 - <span style="color: red;">[Missing functionality]</span> Lorebook generation from large text corpora
 - <span style="color: green;">[Done]</span> Splitting prompts into multiple calls for more reliable generation
-- <span style="color: red;">[Missing functionality]</span>Simultaneously accounting for multiple kinds of data
+- <span style="color: red;">[Missing functionality]</span> Simultaneously accounting for multiple kinds of data
 - <span style="color: red;">[Missing functionality]</span> In-universe and retrospective consistency checks
 - <span style="color: red;">[Missing functionality]</span> Organizing text corpora into compatible universes
 - <span style="color: red;">[Missing functionality]</span> Support for RPG functionality, like HP, XP, and dice rolls based on a rule book
