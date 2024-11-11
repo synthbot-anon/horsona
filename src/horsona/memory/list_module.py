@@ -1,8 +1,7 @@
-import asyncio
 from typing import Generic, TypeVar
 
 from horsona.autodiff.basic import HorseData, HorseModule
-from horsona.autodiff.variables import ListValue, Value
+from horsona.autodiff.variables import ListValue
 from horsona.llm.engine_utils import compile_user_prompt
 
 T = TypeVar("T", bound=HorseData)
@@ -43,8 +42,7 @@ class ListModule(HorseModule, Generic[T]):
         self.max_length = max_length
         self.min_item_length = min(max_length, min_item_length)
 
-
-    async def append(self, item: T, **kwargs) -> T:
+    async def append(self, item: T) -> T | ListValue:
         """
         Add an item to the list cache.
 
@@ -55,14 +53,19 @@ class ListModule(HorseModule, Generic[T]):
         Returns:
             T: The appended item
         """
-        if self.items and (not self.item_lengths or len(self.item_lengths) != len(self.items)):
-            self.item_lengths = [len(await compile_user_prompt(ITEM=item)) for item in self.items]
+        if self.items and (
+            not self.item_lengths or len(self.item_lengths) != len(self.items)
+        ):
+            self.item_lengths = [
+                len(await compile_user_prompt(ITEM=item)) for item in self.items
+            ]
 
         self.pending_items.append(item)
 
         # Aggregate items if minimum length is reached
         pending_str = await compile_user_prompt(ITEM=self.pending_items)
         pending_length = len(pending_str)
+        result = None
         if pending_length >= self.min_item_length:
             if len(self.pending_items) == 1:
                 new_item = self.pending_items[0]
@@ -71,16 +74,14 @@ class ListModule(HorseModule, Generic[T]):
             self.items.append(new_item)
             self.item_lengths.append(pending_length)
             self.pending_items = []
+            result = new_item
 
         # Remove oldest items until under max length
         while sum(self.item_lengths) + pending_length > self.max_length:
             self.items.pop(0)
             self.item_lengths.pop(0)
 
-        if len(self.items) == 0:
-            return None
-
-        return item
+        return result
 
     def get_items(self) -> list[T]:
         """
