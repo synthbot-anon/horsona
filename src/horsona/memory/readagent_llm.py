@@ -36,7 +36,7 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
 
         # Retrieve relevant pages from gists
         class RelevantPages(BaseModel):
-            pages: list[int]
+            pages: list[int | str | None] | None
 
         relevant_pages = await self.underlying_llm.query_object(
             RelevantPages,
@@ -45,11 +45,32 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
             TASK=(
                 "You have access to a list of available gists and pages in GISTS. "
                 f"Select 0 to {self.max_pages} items that are relevant to the {prompt_key}. "
+                "Return the list of page numbers as a list of integers."
             ),
         )
 
+        # Clean the result
+        cleaned_pages: list[int] = []
+        for page in relevant_pages.pages:
+            if page is None:
+                continue
+
+            try:
+                cleaned_pages.append(int(page))
+                continue
+            except ValueError:
+                pass
+
+            if "." in str(page):
+                for piece in str(page).split(".")[::-1]:
+                    try:
+                        cleaned_pages.append(int(piece))
+                        break
+                    except ValueError:
+                        continue
+
         target_pages = []
-        for i in reversed(sorted(relevant_pages.pages)):
+        for i in reversed(sorted(cleaned_pages)):
             if i > 0 and i < len(self.gist_module.available_pages):
                 target_pages.append(i)
             if len(target_pages) == self.max_pages:
