@@ -127,7 +127,11 @@ async def execute(module_name, class_name, function_name, kwargs):
         if function_name == "__init__":
             function = class_
         else:
-            function = getattr(class_, function_name)
+            if isinstance(getattr(class_, function_name), classmethod):
+                function = getattr(class_, function_name)
+            else:
+                function = getattr(kwargs["self"], function_name)
+                del kwargs["self"]
     else:
         function = getattr(module, function_name)
 
