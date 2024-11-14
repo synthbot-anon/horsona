@@ -14,7 +14,7 @@ async def main():
 
     app = FastAPI()
     app.include_router(node_graph.api_router)
-    node_graph.configure(extra_modules=[exposed_module.__name__])
+    node_graph.configure(extra_modules=[exposed_module.__name__], session_timeout=9e9)
 
     config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
     server = uvicorn.Server(config)
