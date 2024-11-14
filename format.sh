@@ -10,7 +10,6 @@ echo $projroot > ~/123
 cd "$projroot"
 
 pyfiles=$(printf '%s\n' "$@" | grep '\.py$')
-echo "pyfiles:" $pyfiles "a"
 
 if [ -z "$pyfiles" ] && [ $# -ne 0 ]; then
     exit 0
