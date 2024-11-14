@@ -14,9 +14,9 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
         super().__init__(**kwargs)
 
     @abstractmethod
-    async def create(self, **kwargs): ...
+    async def create(self, **kwargs) -> ChatCompletion: ...
 
-    async def query(self, prompt=None, **kwargs):
+    async def query(self, prompt: str = None, **kwargs) -> tuple[str, int]:
         if prompt is not None:
             kwargs.setdefault("messages", []).append(
                 {"role": "user", "content": prompt}

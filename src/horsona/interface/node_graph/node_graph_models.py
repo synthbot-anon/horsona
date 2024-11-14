@@ -1,5 +1,5 @@
 from enum import StrEnum, auto
-from typing import Any, Optional, Self, Union
+from typing import Any, Literal, Optional, Self, Union
 
 from pydantic import BaseModel, field_validator, model_validator
 
@@ -18,45 +18,121 @@ class ArgumentType(StrEnum):
     NODE = auto()
 
 
-class Argument(BaseModel):
-    type: ArgumentType
-    value: Any
+class NoneArgument(BaseModel):
+    type: Literal[ArgumentType.NONE] = ArgumentType.NONE
+    value: Literal[None]
+
+
+class UnsupportedArgument(BaseModel):
+    type: Literal[ArgumentType.UNSUPPORTED] = ArgumentType.UNSUPPORTED
+    value: Literal[None]
+
+
+class StrArgument(BaseModel):
+    type: Literal[ArgumentType.STR] = ArgumentType.STR
+    value: str
+
+
+class FloatArgument(BaseModel):
+    type: Literal[ArgumentType.FLOAT] = ArgumentType.FLOAT
+    value: float
+
+
+class IntArgument(BaseModel):
+    type: Literal[ArgumentType.INT] = ArgumentType.INT
+    value: int
+
+
+class BoolArgument(BaseModel):
+    type: Literal[ArgumentType.BOOL] = ArgumentType.BOOL
+    value: bool
+
+
+class ListArgument(BaseModel):
+    type: Literal[ArgumentType.LIST] = ArgumentType.LIST
+    value: list[Any]
 
     @model_validator(mode="after")
-    def validate(self) -> Self:
-        if self.type in (
-            ArgumentType.NONE,
-            ArgumentType.UNSUPPORTED,
-            ArgumentType.STR,
-            ArgumentType.FLOAT,
-            ArgumentType.INT,
-            ArgumentType.BOOL,
-        ):
-            pass
-        elif self.type == ArgumentType.LIST:
-            for i, x in enumerate(self.value):
-                if not isinstance(x, Argument):
-                    self.value[i] = Argument(**x)
-        elif self.type == ArgumentType.DICT:
-            for k, v in self.value.items():
-                if not isinstance(v, Argument):
-                    self.value[k] = Argument(**v)
-        elif self.type == ArgumentType.TUPLE:
-            new_tuple = []
-            for x in self.value:
-                if isinstance(x, Argument):
-                    new_tuple.append(x)
-                else:
-                    new_tuple.append(Argument(**x))
-        elif self.type == ArgumentType.SET:
-            new_set = set()
-            for x in self.value:
-                if isinstance(x, Argument):
-                    new_set.add(x)
-                else:
-                    new_set.add(Argument(**x))
-            self.value = new_set
+    def validate_list(self) -> Self:
+        self.value = [create_argument(**x) for x in self.value]
         return self
+
+
+class DictArgument(BaseModel):
+    type: Literal[ArgumentType.DICT] = ArgumentType.DICT
+    value: dict[str, Any]
+
+    @model_validator(mode="after")
+    def validate_dict(self) -> Self:
+        self.value = {k: create_argument(**v) for k, v in self.value.items()}
+        return self
+
+
+class TupleArgument(BaseModel):
+    type: Literal[ArgumentType.TUPLE] = ArgumentType.TUPLE
+    value: list[Any]
+
+    @model_validator(mode="after")
+    def validate_tuple(self) -> Self:
+        self.value = tuple([create_argument(**x) for x in self.value])
+        return self
+
+
+class SetArgument(BaseModel):
+    type: Literal[ArgumentType.SET] = ArgumentType.SET
+    value: list[Any]
+
+    @model_validator(mode="after")
+    def validate_set(self) -> Self:
+        self.value = set([create_argument(**x) for x in self.value])
+        return self
+
+
+class NodeArgument(BaseModel):
+    type: Literal[ArgumentType.NODE] = ArgumentType.NODE
+    value: int
+
+
+Argument = Union[
+    NoneArgument,
+    UnsupportedArgument,
+    StrArgument,
+    FloatArgument,
+    IntArgument,
+    BoolArgument,
+    ListArgument,
+    DictArgument,
+    TupleArgument,
+    SetArgument,
+    NodeArgument,
+]
+
+
+def create_argument(type: ArgumentType, value: Any) -> Argument:
+    if type == ArgumentType.NONE:
+        return NoneArgument(value=value)
+    elif type == ArgumentType.UNSUPPORTED:
+        return UnsupportedArgument(value=value)
+    elif type == ArgumentType.STR:
+        return StrArgument(value=value)
+    elif type == ArgumentType.FLOAT:
+        return FloatArgument(value=value)
+    elif type == ArgumentType.INT:
+        return IntArgument(value=value)
+    elif type == ArgumentType.BOOL:
+        return BoolArgument(value=value)
+    elif type == ArgumentType.LIST:
+        return ListArgument(value=value)
+    elif type == ArgumentType.DICT:
+        return DictArgument(value=value)
+    elif type == ArgumentType.TUPLE:
+        return TupleArgument(value=value)
+    elif type == ArgumentType.SET:
+        return SetArgument(value=value)
+    elif type == ArgumentType.NODE:
+        return NodeArgument(value=value)
+    else:
+        raise ValueError(f"Unsupported argument type: {type}")
 
 
 class SessionInfo(BaseModel):
@@ -79,8 +155,8 @@ class KeepAliveResponse(BaseModel):
 
 
 class ResourceResponse(BaseModel):
-    id: int
-    result: dict[str, Argument]
+    result: Argument
+    data: Optional[dict[str, Argument]] = None
 
 
 class ListResourcesResponse(BaseModel):
@@ -93,30 +169,3 @@ class DeleteSessionResponse(BaseModel):
 
 class GetResourceResponse(ResourceResponse):
     pass
-
-
-class PostResourceResponse(BaseModel):
-    id: Optional[int]
-    result: Union[dict[str, Argument], Argument]
-
-    @model_validator(mode="after")
-    def validate_result_matches_id(self) -> Self:
-        if self.id is not None:
-            assert isinstance(self.result, dict)
-            for value in self.result.values():
-                assert isinstance(value, Argument)
-        else:
-            assert isinstance(self.result, Argument)
-            assert self.result.type != ArgumentType.NODE
-
-        return self
-
-    @field_validator("result")
-    @classmethod
-    def validate_result(cls, v):
-        try:
-            # First attempt to validate as dictionary
-            return {k: Argument.model_validate(v) for k, v in v.items()}
-        except:
-            # If that fails, return as-is
-            return Argument.model_validate(v)

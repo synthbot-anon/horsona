@@ -22,7 +22,7 @@ class AsyncAnthropicEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncAnthropic()
 
-    async def query(self, **kwargs):
+    async def query(self, **kwargs) -> tuple[str, int]:
         system_msg = []
         messages = kwargs["messages"]
         for i in reversed(range(len(messages))):

@@ -30,7 +30,7 @@ class AsyncTogetherEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncTogether()
 
-    async def query(self, **kwargs):
+    async def query(self, **kwargs) -> tuple[str, int]:
         response = await self.client.chat.completions.create(
             model=self.model, stream=False, **kwargs
         )

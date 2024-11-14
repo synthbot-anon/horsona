@@ -1,4 +1,5 @@
 from openai import AsyncOpenAI
+from openai.types.completion import Completion
 
 from .oai_engine import AsyncOAIEngine
 
@@ -22,5 +23,5 @@ class AsyncOpenAIEngine(AsyncOAIEngine):
         self.model = model
         self.client = AsyncOpenAI()
 
-    async def create(self, **kwargs):
+    async def create(self, **kwargs) -> Completion:
         return await self.client.chat.completions.create(model=self.model, **kwargs)

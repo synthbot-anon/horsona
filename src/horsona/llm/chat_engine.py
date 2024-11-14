@@ -18,7 +18,7 @@ S = TypeVar("S", bound=Union[str, T])
 
 
 class AsyncChatEngine(AsyncLLMEngine, ABC):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
     async def query_object(self, response_model: Type[T], **kwargs) -> T:

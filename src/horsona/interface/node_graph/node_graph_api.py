@@ -1,11 +1,18 @@
+import abc
 import asyncio
 import importlib
+import inspect
+import pkgutil
 import re
+import types
+import typing
 from contextlib import asynccontextmanager
+from inspect import signature
 from time import time
+from types import NoneType, UnionType
 from uuid import uuid4
 
-from fastapi import APIRouter, FastAPI, HTTPException, status
+from fastapi import APIRouter, Body, FastAPI, HTTPException, Request, status
 
 from horsona.autodiff.basic import HorseData, HorseVariable
 
@@ -16,7 +23,9 @@ _sessions: dict[str, "Session"] = {}
 _session_cleanup_interval = 60
 _session_timeout = 300
 _session_cleanup_task = None
-_allowed_modules = re.compile(r"^(horsona\..*)$")
+_allowed_modules_regex = re.compile(r"^(horsona\..*)$")
+_allowed_modules: list[str] = []
+_allowed_module_names: set[str] = set()
 
 
 class Resource(BaseModel):
@@ -40,7 +49,7 @@ async def lifespan(app: FastAPI):
     await stop_session_cleanup_task()
 
 
-router = APIRouter(lifespan=lifespan)
+router = APIRouter(prefix="/api", lifespan=lifespan)
 
 
 def configure(
@@ -61,17 +70,251 @@ def configure(
         _session_timeout, \
         _session_cleanup_interval, \
         _session_cleanup_task, \
-        _allowed_modules
+        _allowed_modules, \
+        _allowed_module_names, \
+        _allowed_modules_regex
 
     _sessions = {}
     _session_timeout = session_timeout
     _session_cleanup_interval = session_cleanup_interval
-    _allowed_modules = re.compile(
-        r"^(" + "|".join([r"horsona\..*", *extra_modules]) + ")$"
+    _allowed_modules_regex = re.compile(
+        (r"^(" + "|".join([rf"{x}$|{x}\..*$" for x in _allowed_modules]) + ")")
     )
 
+    _allowed_module_names = set()
+    _allowed_modules = set()
+    for parent_module_name in ["horsona", *extra_modules]:
+        module = importlib.import_module(parent_module_name)
+        _allowed_modules.add(module)
+        _allowed_module_names.add(parent_module_name)
+        if hasattr(module, "__path__"):
+            for loader, module_name, is_pkg in pkgutil.walk_packages(
+                module.__path__, parent_module_name + "."
+            ):
+                _allowed_modules.add(importlib.import_module(module_name))
+                _allowed_module_names.add(module_name)
     if _session_cleanup_task is not None:
         asyncio.create_task(reset_session_cleanup_task())
+
+
+def _get_param_annotation(annotation) -> type:
+    """
+    Convert Python type annotations into corresponding Argument types for the node graph.
+
+    Args:
+        annotation: The Python type annotation to convert
+
+    Returns:
+        type: The corresponding Argument type for the node graph
+
+    This function handles:
+    - Basic types (int, float, bool, str)
+    - Container types (list, dict, tuple, set)
+    - Union and Optional types
+    - Type variables and forward references
+    - Class types (converted to NodeArgument)
+    """
+    # Handle Union types (e.g. Union[str, int])
+    if isinstance(annotation, types.UnionType):
+        return Union[tuple(_get_param_annotation(arg) for arg in annotation.__args__)]
+
+    # Get the origin type for generic types
+    if hasattr(annotation, "__origin__"):
+        origin = annotation.__origin__
+    elif hasattr(annotation, "__bound__"):
+        return _get_param_annotation(annotation.__bound__)
+    else:
+        origin = annotation
+
+    # Map Python types to Argument types
+    if origin == int:
+        return IntArgument
+    elif origin == float:
+        return FloatArgument
+    elif origin == bool:
+        return BoolArgument
+    elif origin == str:
+        return StrArgument
+    elif origin == list:
+        return ListArgument
+    elif origin == dict:
+        return DictArgument
+    elif origin == tuple:
+        return TupleArgument
+    elif origin == set:
+        return SetArgument
+    elif origin == None:
+        return NoneArgument
+    elif origin == Union:
+        return Union[tuple(_get_param_annotation(arg) for arg in annotation.__args__)]
+    elif origin == Optional:
+        return Optional[_get_param_annotation(annotation.__args__[0])]
+    elif origin == typing.Type:
+        return _get_param_annotation(annotation.__args__[0])
+    elif origin == typing.TypeVar:
+        return _get_param_annotation(annotation.__bound__)
+    elif origin == type:
+        return _get_param_annotation(annotation.__args__[0])
+    elif inspect.isclass(origin):
+        return NodeArgument
+    elif isinstance(origin, str):
+        return NodeArgument
+    elif origin == typing.Any:
+        return Argument
+    else:
+        return None
+
+
+def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
+    """
+    Create a FastAPI route for a given method with appropriate argument types.
+
+    Args:
+        app: The FastAPI application to add the route to
+        path: The URL path for the route
+        method_obj: The method object to create a route for
+
+    Returns:
+        dict: Route configuration if successful, None if route creation failed
+
+    This function:
+    1. Extracts parameter and return type annotations from the method
+    2. Converts Python types to Argument types
+    3. Creates a new method with the converted types
+    4. Adds the route to the FastAPI app
+    """
+    # Get original method specifications
+    orig_spec = inspect.getfullargspec(method_obj)
+    orig_params = orig_spec.args
+    orig_annotations = method_obj.__annotations__
+
+    # Convert annotations to Argument types
+    new_annotations = {}
+    for param in orig_params:
+        # Handle self parameter for class methods
+        if param == "self" and orig_annotations.get(param) == None:
+            new_annotation = NodeArgument
+            new_annotations["self"] = NodeArgument
+            continue
+
+        # Handle missing annotations
+        if param not in orig_annotations:
+            if orig_spec.varkw == param:
+                new_annotation = DictArgument
+                new_annotations[param] = DictArgument
+                continue
+            print(f"Skipping {path} due to missing annotation for parameter {param}")
+            return None
+
+        # Convert annotation to Argument type
+        new_annotation = _get_param_annotation(orig_annotations[param])
+
+        if new_annotation is None:
+            print(
+                f"Skipping {path} due to unsupported annotation for parameter {param}"
+            )
+            return None
+
+        new_annotations[param] = new_annotation
+
+    # Handle return type annotation
+    if "return" not in orig_annotations:
+        if method_obj.__name__ != "__init__":
+            print(f"Skipping {path} due to missing return annotation")
+            return None
+        else:
+            new_annotations["return"] = NodeArgument
+    else:
+        new_annotations["return"] = _get_param_annotation(orig_annotations["return"])
+
+    new_annotations["signature"] = str
+
+    # Create new method with converted annotations
+    def new_method():
+        pass
+
+    new_method.__annotations__ = new_annotations
+    new_method.__name__ = method_obj.__name__
+    new_method.__module__ = method_obj.__module__
+    new_method.__qualname__ = method_obj.__qualname__
+    new_method.__doc__ = method_obj.__doc__
+
+    app.post(path)(new_method)
+
+
+@router.get("/openapi.json")
+async def get_openapi():
+    """
+    Generate OpenAPI specification for all allowed modules and their functions/methods.
+
+    Returns:
+        dict: OpenAPI specification document
+
+    This endpoint:
+    1. Creates a temporary FastAPI app
+    2. Scans all allowed modules for functions and classes
+    3. Creates routes for each function/method with appropriate type conversions
+    4. Generates OpenAPI spec from the routes
+    """
+    import inspect
+
+    from fastapi.openapi.utils import get_openapi
+
+    # Create temporary FastAPI app to generate OpenAPI spec
+    temp_app = FastAPI()
+
+    # Scan all allowed modules
+    for module in _allowed_modules:
+        # Get all functions and classes in module
+        for name, obj in inspect.getmembers(module):
+            if not hasattr(obj, "__module__"):
+                continue
+            if obj.__module__ != module.__name__:
+                continue
+
+            if name.startswith("_"):
+                continue
+
+            # Handle standalone functions
+            if inspect.isfunction(obj) and not type(obj) == type:
+                path = f"{router.prefix}/sessions/{{session_id}}/resources/{module.__name__}/{name}"
+                _create_route(temp_app, path, obj)
+
+            # Handle classes and their methods
+            elif inspect.isclass(obj):
+                for method_name, method in inspect.getmembers(
+                    obj, predicate=inspect.isfunction
+                ):
+                    path = f"{router.prefix}/sessions/{{session_id}}/resources/{module.__name__}/{name}.{method_name}"
+                    if method.__module__ not in _allowed_module_names:
+                        continue
+
+                    # Skip abstract methods
+                    if (
+                        hasattr(obj, "__abstractmethods__")
+                        and method_name in obj.__abstractmethods__
+                    ):
+                        continue
+
+                    # Handle special methods
+                    if method_name.startswith("_"):
+                        if method_name != "__init__":
+                            continue
+                        if (
+                            hasattr(obj, "__abstractmethods__")
+                            and obj.__abstractmethods__
+                        ):
+                            continue
+                    if not hasattr(method, "__call__"):
+                        continue
+
+                    _create_route(temp_app, path, method)
+
+    return get_openapi(
+        title="Horsona Node Graph API",
+        version="0.1.0",
+        routes=temp_app.routes,
+    )
 
 
 async def start_session_cleanup_task():
@@ -116,24 +359,35 @@ async def session_cleanup_task():
 
 
 async def execute(module_name, class_name, function_name, kwargs):
-    if not re.match(_allowed_modules, module_name):
+    if module_name not in _allowed_module_names:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Module not found"
         )
 
-    module = importlib.import_module(module_name)
-    if class_name:
-        class_ = getattr(module, class_name)
-        if function_name == "__init__":
-            function = class_
-        else:
-            if isinstance(getattr(class_, function_name), classmethod):
-                function = getattr(class_, function_name)
+    try:
+        module = importlib.import_module(module_name)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Module not found"
+        )
+
+    try:
+        if class_name:
+            class_ = getattr(module, class_name)
+            if function_name == "__init__":
+                function = class_
             else:
-                function = getattr(kwargs["self"], function_name)
-                del kwargs["self"]
-    else:
-        function = getattr(module, function_name)
+                if isinstance(getattr(class_, function_name), classmethod):
+                    function = getattr(class_, function_name)
+                else:
+                    function = getattr(kwargs["self"], function_name)
+                    del kwargs["self"]
+        else:
+            function = getattr(module, function_name)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Function not found"
+        )
 
     try:
         if asyncio.iscoroutinefunction(function):
@@ -176,62 +430,6 @@ async def list_sessions() -> SessionListResponse:
             )
         )
     return SessionListResponse(sessions=active_sessions)
-
-
-@router.get("/docs")
-async def get_docs(full: bool = False):
-    """
-    Get the Swagger UI HTML for API documentation.
-
-    Returns:
-        HTMLResponse: The Swagger UI HTML.
-    """
-    return router.get_swagger_ui_html(openapi_url="/openapi.json", title="API Docs")
-
-
-@router.get("/openapi.json")
-async def get_openapi(full: bool = False):
-    print("getting docs:", full)
-    if not full:
-        return router.openapi()
-
-    import importlib
-    import inspect
-
-    from fastapi import FastAPI
-    from fastapi.openapi.utils import get_openapi
-
-    # Create temporary FastAPI app to generate OpenAPI spec
-    temp_app = FastAPI()
-
-    # Copy the post_resource route pattern for each module/function
-    for module_name in _allowed_modules:
-        module = importlib.import_module(module_name)
-
-        # Get all functions and classes in module
-        for name, obj in inspect.getmembers(module):
-            if inspect.isfunction(obj):
-                # Add route for standalone function
-                route_path = f"/sessions/{{session_id}}/resources/{module_name}/{name}"
-                temp_app.post(route_path)(post_resource)
-
-            elif inspect.isclass(obj):
-                # Add routes for class methods
-                for method_name, method in inspect.getmembers(
-                    obj, predicate=inspect.isfunction
-                ):
-                    route_path = f"/sessions/{{session_id}}/resources/{module_name}/{name}.{method_name}"
-                    temp_app.post(route_path)(post_resource)
-
-    # Generate OpenAPI spec
-    openapi_schema = get_openapi(
-        title="Node Graph API",
-        version="1.0.0",
-        description="API for interacting with node graph resources",
-        routes=temp_app.routes,
-    )
-
-    return openapi_schema
 
 
 @router.get("/")
@@ -303,13 +501,11 @@ async def list_resources(session_id: str):
 
     resources = []
     for node in _sessions[session_id].resource_id_to_node.values():
-        node_id, result_dict = pack_result(
-            session_id, [], node.result_obj, recurse=True
-        )
+        data, result = pack_result(session_id, [], node.result_obj, recurse=True)
         resources.append(
             ResourceResponse(
-                id=node_id,
-                result=result_dict,
+                result=result,
+                data=data,
             )
         )
     return ListResourcesResponse(resources=resources)
@@ -370,11 +566,11 @@ async def get_resource(session_id: str, resource_id: int):
         )
 
     node: Resource = _sessions[session_id].resource_id_to_node[resource_id]
-    node_id, result_dict = pack_result(session_id, [], node.result_obj, recurse=True)
+    data, result = pack_result(session_id, [], node.result_obj, recurse=True)
 
     return GetResourceResponse(
-        id=node_id,
-        result=result_dict,
+        result=result,
+        data=data,
     )
 
 
@@ -386,8 +582,6 @@ class InvalidArgumentException(Exception):
 def unpack_argument(
     session_id: str, key: list[str], arg: Argument | Any
 ) -> dict[str, Any]:
-    if not isinstance(arg, Argument):
-        return arg
     if arg.type == ArgumentType.NODE:
         return _sessions[session_id].resource_id_to_node[arg.value].result_obj
     elif arg.type in (
@@ -447,12 +641,12 @@ def pack_result(
     session_id: str, key: list[str], obj: Any, recurse=True
 ) -> tuple[Optional[int], Argument | dict[str, Argument]]:
     if obj is None:
-        return None, Argument(type="none", value=None)
+        return None, NoneArgument(type="none", value=None)
     elif isinstance(obj, (int, float, str, bool)):
-        return None, Argument(type=type(obj).__name__, value=obj)
+        return None, create_argument(type=type(obj).__name__, value=obj)
     elif isinstance(obj, list):
         if recurse:
-            return None, Argument(
+            return None, ListArgument(
                 type="list",
                 value=[
                     pack_result(session_id, key + [i], item, recurse=False)[1]
@@ -460,10 +654,10 @@ def pack_result(
                 ],
             )
         else:
-            return None, Argument(type="unsupported", value=None)
+            return None, UnsupportedArgument(type="unsupported", value=None)
     elif isinstance(obj, dict):
         if recurse:
-            return None, Argument(
+            return None, DictArgument(
                 type="dict",
                 value={
                     k: pack_result(session_id, key + [k], v, recurse=False)[1]
@@ -471,10 +665,10 @@ def pack_result(
                 },
             )
         else:
-            return None, Argument(type="unsupported", value=None)
+            return None, UnsupportedArgument(type="unsupported", value=None)
     elif isinstance(obj, tuple):
         if recurse:
-            return None, Argument(
+            return None, TupleArgument(
                 type="tuple",
                 value=tuple(
                     pack_result(session_id, key + [i], item, recurse=False)[1]
@@ -482,10 +676,10 @@ def pack_result(
                 ),
             )
         else:
-            return None, Argument(type="unsupported", value=None)
+            return None, UnsupportedArgument(type="unsupported", value=None)
     elif isinstance(obj, set):
         if recurse:
-            return None, Argument(
+            return None, SetArgument(
                 type="set",
                 value={
                     pack_result(session_id, key + [i], item, recurse=False)[1]
@@ -493,11 +687,11 @@ def pack_result(
                 },
             )
         else:
-            return None, Argument(type="unsupported", value=None)
+            return None, UnsupportedArgument(type="unsupported", value=None)
     elif isinstance(obj, HorseData):
         if not recurse:
             node = create_obj_node(session_id, obj)
-            return node.id, Argument(type="node", value=node.id)
+            return None, NodeArgument(type="node", value=node.id)
 
         result_node = create_obj_node(session_id, obj)
         result_dict = {}
@@ -514,17 +708,17 @@ def pack_result(
                     session_id, key + [attr_name], attr_value, recurse=False
                 )[1]
 
-        return result_node.id, result_dict
+        return result_dict, NodeArgument(type="node", value=result_node.id)
 
     else:
-        return None, Argument(type="unsupported", value=None)
+        return None, UnsupportedArgument(type="unsupported", value=None)
 
 
 @router.post(
     "/sessions/{session_id}/resources/{module_name}/{function_name}",
-    response_model=PostResourceResponse,
+    response_model=ResourceResponse,
 )
-async def post_resource(session_id, module_name, function_name, **kwargs):
+async def post_resource(session_id, module_name, function_name, request: Request):
     """
     Create a new resource in a session.
 
@@ -543,6 +737,12 @@ async def post_resource(session_id, module_name, function_name, **kwargs):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
+
+    body = await request.json()
+    kwargs = {
+        key: create_argument(type=arg["type"], value=arg["value"])
+        for key, arg in body.items()
+    }
 
     await keep_alive(session_id)
 
@@ -564,9 +764,9 @@ async def post_resource(session_id, module_name, function_name, **kwargs):
 
     result = await execute(module_name, class_name, function_name, processed_kwargs)
 
-    node_id, result_dict = pack_result(session_id, [], result, recurse=True)
+    result_data, result_argument = pack_result(session_id, [], result, recurse=True)
 
-    return PostResourceResponse(
-        id=node_id,
-        result=result_dict,
+    return ResourceResponse(
+        result=result_argument,
+        data=result_data,
     )

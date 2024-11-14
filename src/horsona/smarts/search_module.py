@@ -78,7 +78,7 @@ class SearchModule(HorseModule):
             Accepts any HorseType gradients.
             topic will be given text gradients.
         """
-        search_result = await self.search_llm.query_structured(
+        search_result = await self.search_llm.query_object(
             SearchResult,
             TOPIC=topic,
             TASK=(
@@ -134,7 +134,7 @@ class SearchModule(HorseModule):
             Accepts any HorseType gradients.
             topic and info will be given text gradients.
         """
-        validation_result = await self.search_llm.query_structured(
+        validation_result = await self.search_llm.query_object(
             ValidationResult,
             TOPIC=topic,
             INFO=info,

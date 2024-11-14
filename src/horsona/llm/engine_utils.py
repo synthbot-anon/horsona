@@ -1,11 +1,11 @@
 import json
-from typing import Type
+from typing import Any, Type
 from xml.sax.saxutils import escape as xml_escape
 
 from pydantic import BaseModel
 
 
-def _convert_to_xml(obj, prefix=None, indent=0):
+def _convert_to_xml(obj, prefix=None, indent=0) -> str:
     """
     Serialize an object to a JSON string.
 
@@ -87,7 +87,7 @@ def _convert_to_xml(obj, prefix=None, indent=0):
         return indent_str + xml_escape(str(obj))
 
 
-async def compile_user_prompt(**kwargs):
+async def compile_user_prompt(**kwargs) -> str:
     """
     Compile a user prompt from keyword arguments.
 
@@ -107,7 +107,7 @@ async def compile_user_prompt(**kwargs):
     return "\n\n".join(prompt_pieces)
 
 
-def _compile_obj_system_prompt(response_model: Type[BaseModel]):
+def _compile_obj_system_prompt(response_model: Type[BaseModel]) -> str:
     """
     Compile a system prompt for a given response model.
 
@@ -131,7 +131,7 @@ def _compile_obj_system_prompt(response_model: Type[BaseModel]):
 
 async def generate_obj_query_messages(
     response_model: Type[BaseModel], prompt_args: dict
-):
+) -> list[dict[str, Any]]:
     """
     Generate messages for an object query.
 
@@ -157,7 +157,7 @@ async def generate_obj_query_messages(
     ]
 
 
-def parse_obj_response(response_model: Type[BaseModel], content: str):
+def parse_obj_response(response_model: Type[BaseModel], content: str) -> BaseModel:
     """
     Parse an object response from the LLM.
 
@@ -183,7 +183,7 @@ def parse_obj_response(response_model: Type[BaseModel], content: str):
     return response_model(**obj)
 
 
-def parse_block_response(block_type: str, content: str):
+def parse_block_response(block_type: str, content: str) -> str:
     """
     Parse a block response from the LLM.
 
@@ -209,7 +209,7 @@ def parse_block_response(block_type: str, content: str):
     return content[start:end].strip()
 
 
-async def _convert_to_dict(obj):
+async def _convert_to_dict(obj: Any) -> dict:
     """
     Recursively normalize an object for serialization.
 
@@ -234,7 +234,7 @@ async def _convert_to_dict(obj):
         return await _convert_to_dict(await obj.json() if obj is not None else "None")
 
 
-def clean_json_string(json_str):
+def clean_json_string(json_str: str) -> str:
     """
     Clean a JSON string by properly handling newlines within quoted values.
 

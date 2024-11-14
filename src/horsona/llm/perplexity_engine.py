@@ -22,7 +22,7 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         AsyncChatEngine
     """
 
-    def __init__(self, model, *args, **kwargs):
+    def __init__(self, model: str, **kwargs):
         """
         Initialize the AsyncPerplexityEngine.
 
@@ -31,11 +31,11 @@ class AsyncPerplexityEngine(AsyncChatEngine):
             *args: Variable length argument list to pass to the parent constructor.
             **kwargs: Arbitrary keyword arguments to pass to the parent constructor.
         """
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
         self.model = model
         self.apikey = os.environ["PERPLEXITY_API_KEY"]
 
-    async def query(self, **kwargs):
+    async def query(self, **kwargs) -> tuple[str, int]:
         url = "https://api.perplexity.ai/chat/completions"
 
         payload = {

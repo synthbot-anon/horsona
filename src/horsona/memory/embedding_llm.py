@@ -48,7 +48,7 @@ class EmbeddingLLMEngine(AsyncLLMEngine):
         else:
             prompt_key = list(kwargs_clone.keys())[-1]
 
-        search = await self.underlying_llm.query_structured(
+        search = await self.underlying_llm.query_object(
             Search,
             **kwargs_clone,
             TASK=(

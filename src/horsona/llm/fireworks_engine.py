@@ -1,6 +1,7 @@
 import os
 
 from fireworks.client import AsyncFireworks
+from openai.types.completion import Completion
 
 from horsona.llm.oai_engine import AsyncOAIEngine
 
@@ -32,7 +33,7 @@ class AsyncFireworksEngine(AsyncOAIEngine):
         self.model = model
         self.client = AsyncFireworks(api_key=os.environ["FIREWORKS_API_KEY"])
 
-    async def create(self, **kwargs):
+    async def create(self, **kwargs) -> Completion:
         return await self.client.chat.completions.acreate(
             model=self.model, stream=False, **kwargs
         )

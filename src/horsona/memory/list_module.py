@@ -22,8 +22,8 @@ class ListModule(HorseModule, Generic[T]):
     def __init__(
         self,
         items: list[T] = None,
-        max_length=2048,
-        min_item_length=256,
+        max_length: int = 2048,
+        min_item_length: int = 256,
         item_lengths: list[int] = None,
         pending_items: list[T] = None,
         **kwargs,
@@ -92,7 +92,7 @@ class ListModule(HorseModule, Generic[T]):
         """
         return self.items + self.pending_items
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all items from the cache."""
         self.items = []
         self.pending_items = []

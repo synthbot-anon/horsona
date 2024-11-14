@@ -6,6 +6,7 @@ from collections import defaultdict
 from functools import wraps
 from types import MappingProxyType
 from typing import (
+    Any,
     AsyncGenerator,
     Awaitable,
     Callable,
@@ -29,7 +30,7 @@ M = TypeVar("M", bound=Union["HorseModule", "HorseVariable"])
 
 
 class HorseData:
-    def state_dict(self, **override):
+    def state_dict(self, **override) -> Any:
         fields = self.__dict__.copy()
         fields.update(override)
         return state_dict(fields)["data"]
@@ -66,12 +67,12 @@ class HorseVariable(HorseData, ABC):
         self.predecessors = set(predecessors)
         self.name = name
 
-    async def json(self):
+    async def json(self) -> Any:
         raise NotImplementedError(
             f"Class {self.__class__.__name__} can't be passed to LLMEngines since it doesn't implement json"
         )
 
-    def state_dict(self, **override):
+    def state_dict(self, **override) -> Any:
         fields = self.__dict__.copy()
         del fields["predecessors"]
         del fields["grad_fn"]
@@ -84,7 +85,7 @@ class HorseVariable(HorseData, ABC):
         else:
             return f"{self.__class__.__name__}"
 
-    async def apply_gradients(self, gradients: list[HorseGradient]):
+    async def apply_gradients(self, gradients: list[HorseGradient]) -> None:
         pass
 
     async def backward(
@@ -145,7 +146,7 @@ class HorseVariable(HorseData, ABC):
 
         return grad_context
 
-    async def step(self, params: Collection["HorseVariable"]):
+    async def step(self, params: Collection["HorseVariable"]) -> None:
         gradients = await self.backward(params)
         tasks = []
         for v, g in gradients.items():
@@ -169,7 +170,7 @@ class HorseVariable(HorseData, ABC):
 
         return sum_variables(self, other)
 
-    def parameters(self):
+    def parameters(self) -> list["HorseVariable"]:
         def _parameters(obj):
             visited = set([obj])
             for value in obj.__dict__.values():
@@ -251,7 +252,9 @@ class HorseModule(HorseVariable, ABC):
     """Abstract module class with parameters akin to PyTorch's nn.Module."""
 
 
-def load_state_dict(state_dict, args={}, debug_prefix=[]):
+def load_state_dict(
+    state_dict: Any, args: dict = {}, debug_prefix: list[str] = []
+) -> Any:
     if not isinstance(args, dict):
         return args
 
@@ -288,7 +291,7 @@ def load_state_dict(state_dict, args={}, debug_prefix=[]):
         )
 
 
-def state_dict(value):
+def state_dict(value: Any) -> dict | None:
     if isinstance(value, dict):
         result = {}
         for k, v in value.items():

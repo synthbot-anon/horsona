@@ -1,6 +1,7 @@
 import os
 
 from openai import AsyncOpenAI
+from openai.types.completion import Completion
 
 from .oai_engine import AsyncOAIEngine
 
@@ -27,5 +28,5 @@ class AsyncOpenRouterEngine(AsyncOAIEngine):
             api_key=os.environ.get("OPENROUTER_API_KEY"),
         )
 
-    async def create(self, **kwargs):
+    async def create(self, **kwargs) -> Completion:
         return await self.client.chat.completions.create(model=self.model, **kwargs)

@@ -69,7 +69,9 @@ class GistModule(HorseModule):
         return Value("Summary", page_summary, predecessors=[page])
 
 
-def paginate(text, max_chars_per_page, paragraph_split="\n\n"):
+def paginate(
+    text: str, max_chars_per_page: int, paragraph_split: str = "\n\n"
+) -> list[str]:
     """
     Split text into pages while trying to maintain readability by avoiding breaks within
     paragraphs, sentences, and words when possible.

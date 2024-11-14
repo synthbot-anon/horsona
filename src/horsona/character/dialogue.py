@@ -63,7 +63,7 @@ class DialogueModule(HorseModule):
             character_sheet will be given text gradients.
             context will be given text gradients.
         """
-        dialogue_response = await self.llm.query_structured(
+        dialogue_response = await self.llm.query_object(
             DialogueResponse,
             CHARACTER_SHEET=character_sheet,
             CONTEXT=context,

@@ -36,7 +36,7 @@ def load_indices() -> dict[str, BaseIndex]:
     return indices
 
 
-def embedding_model_from_config(config: dict):
+def embedding_model_from_config(config: dict) -> "EmbeddingModel":
     from horsona.index.ollama_model import OllamaEmbeddingModel
     from horsona.index.openai_embedding_model import OpenAIEmbeddingModel
 
@@ -52,11 +52,11 @@ def embedding_model_from_config(config: dict):
 
 
 class EmbeddingModel(HorseData, ABC):
-    def __init__(self, name=None):
+    def __init__(self, name: str | None = None) -> None:
         super().__init__()
         self.name = name
 
-    def state_dict(self, **override):
+    def state_dict(self, **override: dict) -> dict:
         if self.name is not None:
             if override:
                 raise ValueError(
@@ -69,7 +69,9 @@ class EmbeddingModel(HorseData, ABC):
             return super().state_dict(**override)
 
     @classmethod
-    def load_state_dict(cls, state_dict, args={}, debug_prefix=[]):
+    def load_state_dict(
+        cls, state_dict: dict, args: dict = {}, debug_prefix: list = []
+    ) -> "EmbeddingModel":
         if isinstance(state_dict["name"], str):
             if args:
                 raise ValueError(
@@ -81,9 +83,9 @@ class EmbeddingModel(HorseData, ABC):
             return super().load_state_dict(state_dict, args, debug_prefix)
 
     @abstractmethod
-    async def get_data_embeddings(self, sentences):
+    async def get_data_embeddings(self, sentences: list[str]) -> list[list[float]]:
         pass
 
     @abstractmethod
-    async def get_query_embeddings(self, sentences):
+    async def get_query_embeddings(self, sentences: list[str]) -> list[list[float]]:
         pass

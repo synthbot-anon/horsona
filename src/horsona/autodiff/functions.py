@@ -1,9 +1,10 @@
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from pydantic import BaseModel
 
 from horsona.autodiff.basic import (
     GradContext,
+    HorseData,
     HorseGradient,
     HorseVariable,
     horsefunction,
@@ -47,8 +48,8 @@ async def assign_feedback(
     llm: AsyncLLMEngine,
     grad_context: dict[HorseVariable, list[HorseGradient]],
     result: HorseVariable,
-    inputs,
-):
+    inputs: Any,
+) -> None:
     class SuggestedAssignment(BaseModel):
         input_name: str
         relevant_feedback: list[str]

@@ -15,9 +15,9 @@ class MultiEngine(HorseData):
         self,
         engines: list[T],
         max_retries: int = 3,
-        backoff_exp=2,
-        backoff_multiplier=1,
-        name=None,
+        backoff_exp: float = 2,
+        backoff_multiplier: float = 1,
+        name: str = None,
     ):
         super().__init__()
         self.engines = engines
@@ -30,9 +30,9 @@ class MultiEngine(HorseData):
         cls,
         engines: list[T],
         max_retries: int = 3,
-        backoff_exp=2,
-        backoff_multiplier=1,
-        name=None,
+        backoff_exp: float = 2,
+        backoff_multiplier: float = 1,
+        name: str = None,
     ):
         self = super().__new__(cls)
 
@@ -84,7 +84,7 @@ class MultiEngine(HorseData):
         self.async_wrapper = async_wrapper
         return self
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         if name in ("state_dict", "load_state_dict"):
             return getattr(self, name)
 
@@ -95,7 +95,7 @@ class MultiEngine(HorseData):
         else:
             return result
 
-    def state_dict(self, **override):
+    def state_dict(self, **override: dict) -> dict:
         if self.name is not None:
             if override:
                 raise ValueError(
@@ -108,7 +108,9 @@ class MultiEngine(HorseData):
             return super().state_dict(**override)
 
     @classmethod
-    def load_state_dict(cls, state_dict, args={}, debug_prefix=[]):
+    def load_state_dict(
+        cls, state_dict: dict, args: dict = {}, debug_prefix: list = []
+    ) -> T:
         if isinstance(state_dict["name"], str):
             if args:
                 raise ValueError(
@@ -122,5 +124,5 @@ class MultiEngine(HorseData):
 
 def create_multi_engine(
     *engines: T, max_retries: int = 3, backoff_exp=2, backoff_multiplier=1, name=None
-):
+) -> MultiEngine:
     return MultiEngine(engines, max_retries, backoff_exp, backoff_multiplier, name)

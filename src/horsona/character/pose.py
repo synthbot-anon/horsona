@@ -63,7 +63,7 @@ class PoseModule(HorseModule):
             character_info will be given text gradients.
             context will be given text gradients.
         """
-        pose_description = await self.llm.query_structured(
+        pose_description = await self.llm.query_object(
             PoseDescription,
             CHARACTER_INFO=character_info,
             CONTEXT=context,

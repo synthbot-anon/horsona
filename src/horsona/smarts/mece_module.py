@@ -66,7 +66,7 @@ class MECEModule(HorseModule):
             Accepts any HorseType gradients.
             topic will be given text gradients.
         """
-        mece_structure = await self.llm.query_structured(
+        mece_structure = await self.llm.query_object(
             MECEStructure,
             TOPIC=topic,
             TASK=(

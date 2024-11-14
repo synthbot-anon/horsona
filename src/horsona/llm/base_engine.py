@@ -89,7 +89,7 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
 
 
 class CallLimit(HorseData):
-    def __init__(self, limit: float, interval: float):
+    def __init__(self, limit: float, interval: float) -> None:
         assert limit is not None and limit > 0, "Call limit must be a positive float"
         assert interval >= 0, "Rate interval must be a non-negative float"
 
@@ -97,7 +97,7 @@ class CallLimit(HorseData):
         self.interval = interval
         self.last_blocked = time.time() - self.interval / self.limit
 
-    async def consume(self):
+    async def consume(self) -> None:
         if self.limit == None:
             return
 
@@ -107,10 +107,10 @@ class CallLimit(HorseData):
         )
         self.last_blocked += self.interval / self.limit
 
-    def next_allowed(self):
+    def next_allowed(self) -> float:
         return max(self.last_blocked + self.interval / self.limit, time.time())
 
-    async def wait_for(self):
+    async def wait_for(self) -> None:
         next_allowed = self.next_allowed()
         now = time.time()
         if next_allowed > now:
@@ -118,7 +118,7 @@ class CallLimit(HorseData):
 
 
 class TokenLimit(HorseData):
-    def __init__(self, limit: float, interval: float):
+    def __init__(self, limit: float, interval: float) -> None:
         assert limit is not None and limit > 0, "Token limit must be a positive float"
         assert interval >= 0, "Rate interval must be a non-negative float"
 
@@ -126,13 +126,13 @@ class TokenLimit(HorseData):
         self.interval = interval
         self.last_blocked = time.time() - self.interval / self.limit
 
-    def report_consumed(self, count):
+    def report_consumed(self, count: int) -> None:
         self.last_blocked = max(
             self.last_blocked, time.time() - self.interval + self.interval / self.limit
         )
         self.last_blocked += self.interval / self.limit * count
 
-    def next_allowed(self, count):
+    def next_allowed(self, count: int) -> float:
         if self.limit == None:
             return time.time()
 
@@ -141,7 +141,7 @@ class TokenLimit(HorseData):
             time.time() + self.interval / self.limit * (count - 1),
         )
 
-    async def wait_for(self, count):
+    async def wait_for(self, count: int) -> None:
         if count == None:
             count = 1
 
@@ -157,7 +157,7 @@ class RateLimits(HorseData):
         limits: list[dict],
         call_limits: CallLimit = None,
         token_limits: TokenLimit = None,
-    ):
+    ) -> None:
         self.limits = limits
         self.call_limits: list[CallLimit] = []
         self.token_limits: list[TokenLimit] = []
@@ -171,20 +171,20 @@ class RateLimits(HorseData):
             if tokens != None:
                 self.token_limits.append(TokenLimit(tokens, interval))
 
-    async def consume_call(self):
+    async def consume_call(self) -> None:
         await asyncio.gather(*[limit.consume() for limit in self.call_limits])
 
-    def report_tokens_consumed(self, count):
+    def report_tokens_consumed(self, count: int) -> None:
         for limit in self.token_limits:
             limit.report_consumed(count)
 
-    async def wait_for(self, expected_tokens=None):
+    async def wait_for(self, expected_tokens: int = None) -> None:
         await asyncio.gather(
             *[limit.wait_for() for limit in self.call_limits],
             *[limit.wait_for(expected_tokens) for limit in self.token_limits],
         )
 
-    def next_allowed(self, expected_tokens=None):
+    def next_allowed(self, expected_tokens: int = None) -> float:
         if self.call_limits:
             next_call = max(limit.next_allowed() for limit in self.call_limits)
         else:
@@ -235,7 +235,7 @@ class AsyncLLMEngine(HorseData, ABC):
         Use `query_block` to get responses for markdown block types.
     """
 
-    def __init__(self, rate_limits=[], name=None, **kwargs):
+    def __init__(self, rate_limits: list = [], name: str = None, **kwargs) -> None:
         """
         Initialize the AsyncLLMEngine.
 
@@ -245,13 +245,13 @@ class AsyncLLMEngine(HorseData, ABC):
         self.kwargs = kwargs
         self.name = name
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args, **kwargs) -> "AsyncLLMEngine":
         self = super().__new__(cls)
 
         original_query = self.query
 
         @functools.wraps(original_query)
-        async def wrapped_query(*args, **kwargs):
+        async def wrapped_query(*args, **kwargs) -> tuple[str, int]:
             await self.rate_limit.consume_call()
             content, tokens_consumed = await original_query(
                 *args, **{**self.kwargs, **kwargs}
@@ -262,7 +262,7 @@ class AsyncLLMEngine(HorseData, ABC):
         self.query = wrapped_query
         return self
 
-    def state_dict(self, **override):
+    def state_dict(self, **override) -> dict:
         if self.name is not None:
             if override:
                 raise ValueError(
@@ -275,7 +275,9 @@ class AsyncLLMEngine(HorseData, ABC):
             return super().state_dict(**override)
 
     @classmethod
-    def load_state_dict(cls, state_dict, args={}, debug_prefix=[]):
+    def load_state_dict(
+        cls, state_dict: dict, args: dict = {}, debug_prefix: list = []
+    ) -> "AsyncLLMEngine":
         if isinstance(state_dict["name"], str):
             if args:
                 raise ValueError(
@@ -287,7 +289,7 @@ class AsyncLLMEngine(HorseData, ABC):
             return super().load_state_dict(state_dict, args, debug_prefix)
 
     @abstractmethod
-    async def query(self, **kwargs):
+    async def query(self, **kwargs) -> tuple[str, int]:
         """
         Send a query to the Language Learning Model.
 
@@ -327,7 +329,7 @@ class AsyncLLMEngine(HorseData, ABC):
         ...
 
     @abstractmethod
-    async def query_block(self, block_type: str, **kwargs) -> T:
+    async def query_block(self, block_type: str, **kwargs) -> str:
         """
         Query the LLM for a specific block type and parse the response.
 
@@ -348,37 +350,6 @@ class AsyncLLMEngine(HorseData, ABC):
             Exception: If the query fails.
         """
         ...
-
-    async def query_structured(self, structure: S, **kwargs):
-        """
-        Query the LLM and parse the response into a specified structure.
-
-        This method separates the input kwargs into prompt arguments and API arguments,
-        generates the query messages, sends the query, and parses the response.
-
-        Args:
-            structure (Union[str, BaseModel]): The structure to parse the response into,
-                                               either a string for markdown block types
-                                               or a Pydantic model for object types.
-            **kwargs: Arbitrary keyword arguments. Arguments with all-uppercase keys
-                      will be passed to the LLM via the prompt. Others as LLM API
-                      arguments.
-
-        Returns:
-            Union[str, BaseModel]: The parsed response in the specified structure.
-
-        Raises:
-            Exception: If the query fails.
-        """
-        if isinstance(structure, str):
-            return await self.query_block(structure, **kwargs)
-        elif issubclass(structure, BaseModel):
-            return await self.query_object(structure, **kwargs)
-        else:
-            raise ValueError(
-                "Invalid structure type. Must be a string or a Pydantic model. "
-                f"Got: {type(structure)}"
-            )
 
     @abstractmethod
     async def query_continuation(self, prompt: str, **kwargs) -> str:

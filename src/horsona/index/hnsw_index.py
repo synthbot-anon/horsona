@@ -13,17 +13,17 @@ class HnswEmbeddingIndex(EmbeddingIndex):
     def __init__(
         self,
         model: EmbeddingModel,
-        index_size=None,
-        index_to_value=None,
-        value_to_index=None,
-        indices=None,
-        embeddings=None,
-        deleted_indices=None,
-        next_index=None,
-        space=None,
-        dim=None,
+        index_size: int = None,
+        index_to_value: dict = None,
+        value_to_index: dict = None,
+        indices: list = None,
+        embeddings: hnswlib.Index = None,
+        deleted_indices: set = None,
+        next_index: int = None,
+        space: str = None,
+        dim: int = None,
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(**kwargs)
         self.model = model
 
@@ -37,7 +37,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
         self.dim = dim or None
         self.embeddings = embeddings
 
-    def state_dict(self):
+    def state_dict(self) -> dict:
         if self.embeddings is None:
             return super().state_dict()
 
@@ -59,7 +59,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
 
     @classmethod
     def load_state_dict(
-        cls, state_dict, args={}, debug_prefix=[]
+        cls, state_dict: dict, args: dict = {}, debug_prefix: list = []
     ) -> "HnswEmbeddingIndex":
         if state_dict["embeddings"]["data"] is None:
             return super().load_state_dict(state_dict, args, debug_prefix=debug_prefix)
@@ -91,7 +91,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
             debug_prefix=debug_prefix,
         )
 
-    def _ensure_capacity(self, example_embeddings):
+    def _ensure_capacity(self, example_embeddings: list) -> None:
         self.dim = len(example_embeddings[0])
         num_elements = len(example_embeddings) + len(self.index_to_value)
         max_elements = max(4096, num_elements * 2)
@@ -125,7 +125,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
 
         return dict(zip(indices[0], values))
 
-    async def extend(self, data: list[str]):
+    async def extend(self, data: list[str]) -> None:
         if not data:
             return
 
@@ -154,7 +154,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
             replace_deleted=True,
         )
 
-    async def delete(self, indices: list[int | str] = []):
+    async def delete(self, indices: list[int | str] = []) -> list[str]:
         if not indices:
             return []
 

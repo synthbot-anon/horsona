@@ -90,7 +90,7 @@ class Database(HorseVariable, ABC):
     @abstractmethod
     async def get(self, key): ...
 
-    async def apply_gradients(self, gradients: list[HorseGradient]):
+    async def apply_gradients(self, gradients: list[HorseGradient]) -> None:
         if not gradients:
             return
 

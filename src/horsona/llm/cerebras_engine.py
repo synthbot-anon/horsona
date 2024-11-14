@@ -1,4 +1,5 @@
 from cerebras.cloud.sdk import AsyncCerebras
+from openai.types.completion import Completion
 
 from .oai_engine import AsyncOAIEngine
 
@@ -17,12 +18,12 @@ class AsyncCerebrasEngine(AsyncOAIEngine):
         AsyncChatEngine
     """
 
-    def __init__(self, model: str, *args, **kwargs):
+    def __init__(self, model: str, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.model = model
         self.client = AsyncCerebras()
 
-    async def create(self, **kwargs):
+    async def create(self, **kwargs) -> Completion:
         return await self.client.chat.completions.create(
             model=self.model, timeout=2, **kwargs
         )
