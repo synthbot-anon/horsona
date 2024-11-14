@@ -13,7 +13,7 @@ async def main():
 
     parser = argparse.ArgumentParser(description="Node Graph API")
     parser.add_argument(
-        "--session-timeout", type=float, default=300, help="Session timeout in seconds"
+        "--session-timeout", type=float, default=9e9, help="Session timeout in seconds"
     )
     parser.add_argument(
         "--session-cleanup-interval",

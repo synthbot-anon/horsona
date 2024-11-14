@@ -165,6 +165,10 @@ def _get_param_annotation(annotation) -> type:
         return None
 
 
+class DependencyOverride:
+    use_cache: bool = False
+
+
 def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     """
     Create a FastAPI route for a given method with appropriate argument types.
@@ -208,7 +212,6 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
 
         # Convert annotation to Argument type
         new_annotation = _get_param_annotation(orig_annotations[param])
-
         if new_annotation is None:
             print(
                 f"Skipping {path} due to unsupported annotation for parameter {param}"
@@ -227,19 +230,51 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     else:
         new_annotations["return"] = _get_param_annotation(orig_annotations["return"])
 
-    new_annotations["signature"] = str
+    response_model = new_annotations.pop("return")
 
-    # Create new method with converted annotations
-    def new_method():
-        pass
+    # Create the new method
+    args = "\n    ".join(
+        [
+            f"{f}: {v.__repr__() if type(v).__module__ == 'typing' else v.__name__}"
+            for f, v in new_annotations.items()
+        ]
+    )
+    args_name = "_".join(path.split("/")[-1].split("."))
+    if args:
+        ns = {x.__name__: x for x in _allowed_modules}
+        ns.update(globals())
+        exec(
+            (
+                f"class Args_{args_name}(BaseModel):\n"
+                f"    {args}\n"
+                f"\n"
+                f"def new_method(session_id: str, args: Args_{args_name}):\n"
+                f"    pass\n"
+            ),
+            ns,
+            ns,
+        )
 
-    new_method.__annotations__ = new_annotations
-    new_method.__name__ = method_obj.__name__
-    new_method.__module__ = method_obj.__module__
-    new_method.__qualname__ = method_obj.__qualname__
+        new_method = ns["new_method"]
+    else:
+
+        def new_method(session_id: str):
+            pass
+
     new_method.__doc__ = method_obj.__doc__
 
-    app.post(path)(new_method)
+    # Add the new method to the FastAPI app
+    app.post(path, response_model=response_model)(new_method)
+
+
+@router.get("/docs")
+async def docs():
+    from fastapi.openapi.docs import get_swagger_ui_html
+
+    # return swagger ui
+    return get_swagger_ui_html(
+        openapi_url="/api/openapi.json", title="Horsona Node Graph API"
+    )
 
 
 @router.get("/openapi.json")
@@ -718,7 +753,7 @@ def pack_result(
     "/sessions/{session_id}/resources/{module_name}/{function_name}",
     response_model=ResourceResponse,
 )
-async def post_resource(session_id, module_name, function_name, request: Request):
+async def post_resource(session_id, module_name, function_name, body: dict = Body(...)):
     """
     Create a new resource in a session.
 
@@ -738,7 +773,6 @@ async def post_resource(session_id, module_name, function_name, request: Request
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
 
-    body = await request.json()
     kwargs = {
         key: create_argument(type=arg["type"], value=arg["value"])
         for key, arg in body.items()
