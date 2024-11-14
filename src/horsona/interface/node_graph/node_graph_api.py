@@ -179,7 +179,7 @@ async def list_sessions() -> SessionListResponse:
 
 
 @router.get("/docs")
-async def get_docs():
+async def get_docs(full: bool = False):
     """
     Get the Swagger UI HTML for API documentation.
 
@@ -187,6 +187,51 @@ async def get_docs():
         HTMLResponse: The Swagger UI HTML.
     """
     return router.get_swagger_ui_html(openapi_url="/openapi.json", title="API Docs")
+
+
+@router.get("/openapi.json")
+async def get_openapi(full: bool = False):
+    print("getting docs:", full)
+    if not full:
+        return router.openapi()
+
+    import importlib
+    import inspect
+
+    from fastapi import FastAPI
+    from fastapi.openapi.utils import get_openapi
+
+    # Create temporary FastAPI app to generate OpenAPI spec
+    temp_app = FastAPI()
+
+    # Copy the post_resource route pattern for each module/function
+    for module_name in _allowed_modules:
+        module = importlib.import_module(module_name)
+
+        # Get all functions and classes in module
+        for name, obj in inspect.getmembers(module):
+            if inspect.isfunction(obj):
+                # Add route for standalone function
+                route_path = f"/sessions/{{session_id}}/resources/{module_name}/{name}"
+                temp_app.post(route_path)(post_resource)
+
+            elif inspect.isclass(obj):
+                # Add routes for class methods
+                for method_name, method in inspect.getmembers(
+                    obj, predicate=inspect.isfunction
+                ):
+                    route_path = f"/sessions/{{session_id}}/resources/{module_name}/{name}.{method_name}"
+                    temp_app.post(route_path)(post_resource)
+
+    # Generate OpenAPI spec
+    openapi_schema = get_openapi(
+        title="Node Graph API",
+        version="1.0.0",
+        description="API for interacting with node graph resources",
+        routes=temp_app.routes,
+    )
+
+    return openapi_schema
 
 
 @router.get("/")
@@ -475,8 +520,11 @@ def pack_result(
         return None, Argument(type="unsupported", value=None)
 
 
-@router.post("/sessions/{session_id}/resources", response_model=PostResourceResponse)
-async def post_resource(session_id, request: PostResourceRequest):
+@router.post(
+    "/sessions/{session_id}/resources/{module_name}/{function_name}",
+    response_model=PostResourceResponse,
+)
+async def post_resource(session_id, module_name, function_name, **kwargs):
     """
     Create a new resource in a session.
 
@@ -498,9 +546,14 @@ async def post_resource(session_id, request: PostResourceRequest):
 
     await keep_alive(session_id)
 
+    if "." in function_name:
+        class_name, function_name = function_name.split(".")
+    else:
+        class_name = None
+
     processed_kwargs = {}
     errors = []
-    for key, arg in request.kwargs.items():
+    for key, arg in kwargs.items():
         try:
             processed_kwargs[key] = unpack_argument(session_id, [key], arg)
         except InvalidArgumentException as e:
@@ -509,9 +562,7 @@ async def post_resource(session_id, request: PostResourceRequest):
     if errors:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=errors)
 
-    result = await execute(
-        request.module_name, request.class_name, request.function_name, processed_kwargs
-    )
+    result = await execute(module_name, class_name, function_name, processed_kwargs)
 
     node_id, result_dict = pack_result(session_id, [], result, recurse=True)
 

@@ -95,13 +95,6 @@ class GetResourceResponse(ResourceResponse):
     pass
 
 
-class PostResourceRequest(BaseModel):
-    module_name: str
-    class_name: Optional[str] = None
-    function_name: str
-    kwargs: dict[str, Argument] = {}
-
-
 class PostResourceResponse(BaseModel):
     id: Optional[int]
     result: Union[dict[str, Argument], Argument]
