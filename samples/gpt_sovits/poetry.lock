@@ -677,7 +677,7 @@ description = ""
 optional = false
 python-versions = "^3.11"
 files = []
-develop = true
+develop = false
 
 [package.dependencies]
 aiofiles = "^24.1.0"
@@ -693,11 +693,12 @@ openai = "^1.45.1"
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"
 together = "^1.2.7"
-uvicorn = "^0.32.0"
 
 [package.source]
-type = "directory"
-url = "../.."
+type = "git"
+url = "https://github.com/synthbot-anon/horsona"
+reference = "f2722af876aae932757538a051aceea770d1d166"
+resolved_reference = "f2722af876aae932757538a051aceea770d1d166"
 
 [[package]]
 name = "httpcore"
@@ -1941,24 +1942,6 @@ socks = ["pysocks (>=1.5.6,!=1.5.7,<2.0)"]
 zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
-name = "uvicorn"
-version = "0.32.0"
-description = "The lightning-fast ASGI server."
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "uvicorn-0.32.0-py3-none-any.whl", hash = "sha256:60b8f3a5ac027dcd31448f411ced12b5ef452c646f76f02f8cc3f25d8d26fd82"},
-    {file = "uvicorn-0.32.0.tar.gz", hash = "sha256:f78b36b143c16f54ccdb8190d0a26b5f1901fe5a3c777e1ab29f26391af8551e"},
-]
-
-[package.dependencies]
-click = ">=7.0"
-h11 = ">=0.8"
-
-[package.extras]
-standard = ["colorama (>=0.4)", "httptools (>=0.5.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "uvloop (>=0.14.0,!=0.15.0,!=0.15.1)", "watchfiles (>=0.13)", "websockets (>=10.4)"]
-
-[[package]]
 name = "wsproto"
 version = "1.2.0"
 description = "WebSockets state-machine based protocol implementation"
@@ -2071,4 +2054,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "b34dd6b67e3866d0792dad5a6b4aaee2911a7a639133facc0f9803cc1f2d94fc"
+content-hash = "be7142abc840e4a22a98b52d6c6f3773c4e9c10bc87d9ee2799bbcb8ce8517bc"

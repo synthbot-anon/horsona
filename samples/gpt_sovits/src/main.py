@@ -13,12 +13,13 @@ async def main():
         user_input = input("Text: ")
         speech = await gpt_sovits.generate_speech(VOICE, user_input)
 
-        with open(f"{VOICE}_{i}.wav", "wb") as f:
+        output_path = f"{VOICE}_{i}.wav"
+        with open(output_path, "wb") as f:
             f.write(speech)
+            i += 1
 
-        print(f"Saved to {VOICE}_{i}.wav")
+        print(f"Saved to {output_path}")
         print("-" * 60)
-        i += 1
 
 
 asyncio.run(main())
