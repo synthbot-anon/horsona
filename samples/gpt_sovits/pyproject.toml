@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "gpt_sovits"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+  "Synthbot Anon <synthbot.anon@gmail.com>"
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiofiles = "*"
+horsona = {path = "../../../horsona", develop = true}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
