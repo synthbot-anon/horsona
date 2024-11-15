@@ -49,7 +49,16 @@ class ResourceStateLock:
 
             self._task_counter += 1
 
-            await self.set_state(resource, required_state)
+            if not self._state_set.is_set():
+                await self._state_set.wait()
+            else:
+                # Make sure subsequent calls wait until the model is set
+                self._state_set.clear()
+
+                await self.set_state(resource, required_state)
+
+                # Notify anyone waiting that the model has been set
+                self._state_set.set()
 
             yield
 

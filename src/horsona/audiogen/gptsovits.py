@@ -26,12 +26,6 @@ class SpeakerLock(ResourceStateLock):
         - Reference audio from /voices/{speaker}/reference.flac
         - Reference transcript from /voices/{speaker}/reference-transcript.txt
         """
-        if not self._state_set.is_set():
-            await self._state_set.wait()
-            return
-
-        # Make sure subsequent calls wait until the model is set
-        self._state_set.clear()
 
         # Set the model
         await asyncio.gather(
@@ -44,8 +38,6 @@ class SpeakerLock(ResourceStateLock):
                 f"/voices/{speaker}/reference-transcript.txt",
             ),
         )
-        # Notify anyone waiting that the model has been set
-        self._state_set.set()
 
     async def _set_remote_model(
         self, base_url: str, gpt_model_path: str, sovits_model_path: str
