@@ -1,22 +1,39 @@
-# Boilerplate
+# Speech Generation Sample
 
-This project provides boilerplate code for creating sample applications using the Horsona framework.
+This sample demonstrates how to use the GPT-SoVITS text-to-speech system to generate speech from text input.
 
-## Setup
+## Setup Instructions
 
-1. Edit the following configuration files according to the [horsona README](https://github.com/synthbot-anon/horsona/blob/main/README.md):
-   - `llm_config.json` - Configure LLM settings
-   - `index_config.json` - Configure index settings 
-   - `.env` - Copy from `.env.example` and adjust it to set environment variables
+### Setting up GPT-SoVITS TTS endpoint
 
-2. Install dependencies:
+1. Create a new folder called `gptsovits_data`
+
+2. Download and unzip [these files](https://drive.google.com/file/d/1UWW1xccBluHakzk2OwBSCDEjPwTXs8Ui/view?usp=sharing) into the `gptsovits_data` folder. This contains:
+   - Required pretrained models 
+   - API config file
+   - Sample voices in the required directory structure
+
+3. From inside the `gptsovits_data` folder, run this command to start the GPT-SoVITS server:
+   ```bash
+   docker run --name gptsovits --rm -it -p 9880:9880 \
+     -v "./tts-configs:/workspace/GPT_SoVITS/configs" \
+     -v "./pretrained-models/:/workspace/GPT_SoVITS/pretrained_models" \
+     -v "./voices:/voices" \
+     synthbot/gpt-sovits:v2 python api.py -a 0.0.0.0
+   ```
+
+### Setting up the Repository
+
+1. Install dependencies using Poetry:
    ```bash
    poetry install
    ```
 
-3. Run the application:
+### Running the Sample
+
+1. Run the sample script:
    ```bash
-   poetry run python -m boilerplate
+   poetry run python src/main.py
    ```
 
-
+This will start an interactive prompt where you can enter text to be converted to speech. The generated audio files will be saved in the current directory with incrementing numbers (e.g. `rarity_0.wav`, `rarity_1.wav`, etc).
