@@ -7,6 +7,7 @@ from horsona.llm import load_engines
 
 from .async_input import async_input
 
+# Load API keys from .env file
 load_dotenv()
 
 engines = load_engines()
@@ -17,8 +18,10 @@ async def main():
     reasoning_llm = engines["reasoning_llm"]
 
     while True:
-        user_input = await async_input("Input: ")
-        llm_response = await reasoning_llm.query_block("text", TASK=user_input)
+        user_input = await async_input("Input text to summarize: ")
+        llm_response = await reasoning_llm.query_block(
+            "text", TASK="Summarize the following: {}".format(user_input)
+        )
 
         print(llm_response)
 
