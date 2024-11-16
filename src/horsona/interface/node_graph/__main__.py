@@ -26,7 +26,7 @@ async def main():
     )
     args = parser.parse_args()
 
-    app = FastAPI()
+    app = FastAPI(title="Horsona Node Graph")
     app.include_router(node_graph.api_router)
     node_graph.configure(
         session_timeout=args.session_timeout,

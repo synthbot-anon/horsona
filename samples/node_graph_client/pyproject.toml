@@ -9,6 +9,8 @@ authors = [
 
 [tool.poetry.dependencies]
 python = "^3.11"
+horsona-node-graph-client = {path = "horsona-node-graph-client"}
+horsona-modules-client = {path = "horsona-modules-client"}
 
 [tool.poetry.group.dev.dependencies]
 openapi-python-client = "^0.21.6"

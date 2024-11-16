@@ -230,7 +230,8 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     else:
         new_annotations["return"] = _get_param_annotation(orig_annotations["return"])
 
-    response_model = new_annotations.pop("return")
+    new_annotations.pop("return")
+    response_model = ResourceResponse
 
     # Create the new method
     args = "\n    ".join(
@@ -346,7 +347,7 @@ async def get_openapi():
                     _create_route(temp_app, path, method)
 
     return get_openapi(
-        title="Horsona Node Graph API",
+        title="Horsona Modules",
         version="0.1.0",
         routes=temp_app.routes,
     )
@@ -799,6 +800,9 @@ async def post_resource(session_id, module_name, function_name, body: dict = Bod
     result = await execute(module_name, class_name, function_name, processed_kwargs)
 
     result_data, result_argument = pack_result(session_id, [], result, recurse=True)
+
+    print("returning:", result_argument)
+    print("data:", result_data)
 
     return ResourceResponse(
         result=result_argument,

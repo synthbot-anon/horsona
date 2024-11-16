@@ -12,7 +12,7 @@ from . import exposed_module
 async def main():
     load_dotenv(".env")
 
-    app = FastAPI()
+    app = FastAPI(title="Horsona Node Graph")
     app.include_router(node_graph.api_router)
     node_graph.configure(extra_modules=[exposed_module.__name__], session_timeout=9e9)
 

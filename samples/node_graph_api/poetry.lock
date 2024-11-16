@@ -677,7 +677,7 @@ description = ""
 optional = false
 python-versions = "^3.11"
 files = []
-develop = false
+develop = true
 
 [package.dependencies]
 aiofiles = "^24.1.0"
@@ -693,12 +693,11 @@ openai = "^1.45.1"
 python-dotenv = "^1.0.1"
 pyyaml = "^6.0.2"
 together = "^1.2.7"
+uvicorn = "^0.32.0"
 
 [package.source]
-type = "git"
-url = "https://github.com/synthbot-anon/horsona"
-reference = "2d536a8dc9ba07e44d7ebe8b8921bc6db3574f1e"
-resolved_reference = "2d536a8dc9ba07e44d7ebe8b8921bc6db3574f1e"
+type = "directory"
+url = "../.."
 
 [[package]]
 name = "httpcore"
@@ -1426,8 +1425,8 @@ files = [
 annotated-types = ">=0.6.0"
 pydantic-core = "2.23.4"
 typing-extensions = [
-    {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
     {version = ">=4.6.1", markers = "python_version < \"3.13\""},
+    {version = ">=4.12.2", markers = "python_version >= \"3.13\""},
 ]
 
 [package.extras]
@@ -1734,8 +1733,8 @@ click = ">=8.1.7,<9.0.0"
 eval-type-backport = ">=0.1.3,<0.3.0"
 filelock = ">=3.13.1,<4.0.0"
 numpy = [
-    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
     {version = ">=1.23.5", markers = "python_version < \"3.12\""},
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
 ]
 pillow = ">=10.3.0,<11.0.0"
 pyarrow = ">=10.0.1"
@@ -2072,4 +2071,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "4a74dd66b6c11148917f7f542e28faeb3f958abfe6afe783256a679c3068ee43"
+content-hash = "caedfef1db8190c45778a89945eab11db55c1e586df57e2009f6c9ec917ccf89"
