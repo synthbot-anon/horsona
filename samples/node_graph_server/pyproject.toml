@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "node_graph_api"
+name = "node_graph_server"
 version = "0.1.0"
 description = ""
 readme = "README.md"
@@ -9,7 +9,7 @@ authors = [
 
 [tool.poetry.dependencies]
 python = "^3.11"
-horsona = {path = "../../../horsona", develop = true}
+horsona = { git = "https://github.com/synthbot-anon/horsona" }
 uvicorn = "^0.32.0"
 
 

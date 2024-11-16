@@ -677,7 +677,7 @@ description = ""
 optional = false
 python-versions = "^3.11"
 files = []
-develop = true
+develop = false
 
 [package.dependencies]
 aiofiles = "^24.1.0"
@@ -696,8 +696,10 @@ together = "^1.2.7"
 uvicorn = "^0.32.0"
 
 [package.source]
-type = "directory"
-url = "../.."
+type = "git"
+url = "https://github.com/synthbot-anon/horsona"
+reference = "HEAD"
+resolved_reference = "9f06edbd3c5a772150d70158eb16f907d98c3ee3"
 
 [[package]]
 name = "httpcore"
@@ -2071,4 +2073,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "caedfef1db8190c45778a89945eab11db55c1e586df57e2009f6c9ec917ccf89"
+content-hash = "122cc0858b15c8fd985ea7e6743de6d67a8e98f01405af197df00ae8b6f9b685"

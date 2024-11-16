@@ -1,7 +1,7 @@
 #!/bin/sh
 
-if printf '%s\n' "$@" | grep -q '[[:space:]]'; then
-    echo "Error: Filenames cannot contain whitespace" >&2
+if printf '%s\n' "$@" | grep '\.py$' | grep -q '[[:space:]]'; then
+    echo "Error: Python filenames cannot contain whitespace" >&2
     exit 1
 fi
 
