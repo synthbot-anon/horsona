@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "node_graph_client"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+  "Synthbot Anon <synthbot.anon@gmail.com>"
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[tool.poetry.group.dev.dependencies]
+openapi-python-client = "^0.21.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
