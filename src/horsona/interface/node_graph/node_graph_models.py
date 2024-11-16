@@ -20,12 +20,12 @@ class ArgumentType(StrEnum):
 
 class NoneArgument(BaseModel):
     type: Literal[ArgumentType.NONE] = ArgumentType.NONE
-    value: Literal[None]
+    value: Optional[Any] = None
 
 
 class UnsupportedArgument(BaseModel):
     type: Literal[ArgumentType.UNSUPPORTED] = ArgumentType.UNSUPPORTED
-    value: Literal[None]
+    value: Optional[Any] = None
 
 
 class StrArgument(BaseModel):
