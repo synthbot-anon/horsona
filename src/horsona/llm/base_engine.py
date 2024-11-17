@@ -3,7 +3,8 @@ import functools
 import json
 import time
 from abc import ABC, abstractmethod
-from typing import Type, TypeVar, Union
+from dataclasses import dataclass
+from typing import Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -211,6 +212,11 @@ class CallLimitException(Exception):
     pass
 
 
+@dataclass
+class LLMMetrics:
+    tokens_consumed: int = 0
+
+
 class AsyncLLMEngine(HorseData, ABC):
     """
     A class representing an engine for interacting with Language Learning Models
@@ -251,12 +257,18 @@ class AsyncLLMEngine(HorseData, ABC):
         original_query = self.query
 
         @functools.wraps(original_query)
-        async def wrapped_query(*args, **kwargs) -> tuple[str, int]:
+        async def wrapped_query(
+            *args, metrics: Optional[LLMMetrics] = None, **kwargs
+        ) -> tuple[str, int]:
             await self.rate_limit.consume_call()
-            content, tokens_consumed = await original_query(
-                *args, **{**self.kwargs, **kwargs}
+            if metrics is None:
+                metrics = LLMMetrics()
+
+            content = await original_query(
+                *args, metrics=metrics, **{**self.kwargs, **kwargs}
             )
-            self.rate_limit.report_tokens_consumed(tokens_consumed)
+
+            self.rate_limit.report_tokens_consumed(metrics.tokens_consumed)
             return content
 
         self.query = wrapped_query
@@ -289,7 +301,9 @@ class AsyncLLMEngine(HorseData, ABC):
             return super().load_state_dict(state_dict, args, debug_prefix)
 
     @abstractmethod
-    async def query(self, **kwargs) -> tuple[str, int]:
+    async def query(
+        self, metrics: Optional[LLMMetrics] = None, **kwargs
+    ) -> tuple[str, int]:
         """
         Send a query to the Language Learning Model.
 

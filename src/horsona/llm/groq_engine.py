@@ -1,5 +1,7 @@
 from groq import AsyncGroq
 
+from horsona.llm.base_engine import LLMMetrics
+
 from .chat_engine import AsyncChatEngine
 
 
@@ -30,8 +32,9 @@ class AsyncGroqEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncGroq()
 
-    async def query(self, **kwargs) -> tuple[str, int]:
+    async def query(self, metrics: LLMMetrics = None, **kwargs) -> tuple[str, int]:
         response = await self.client.chat.completions.create(
             model=self.model, stream=False, **kwargs
         )
-        return response.choices[0].message.content, response.usage.total_tokens
+        metrics.tokens_consumed += response.usage.total_tokens
+        return response.choices[0].message.content

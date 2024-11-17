@@ -1,6 +1,10 @@
 import os
+import warnings
 
-from fireworks.client import AsyncFireworks
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    from fireworks.client import AsyncFireworks
+
 from openai.types.completion import Completion
 
 from horsona.llm.oai_engine import AsyncOAIEngine

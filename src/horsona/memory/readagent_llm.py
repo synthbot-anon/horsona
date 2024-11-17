@@ -2,14 +2,15 @@ from typing import Type, TypeVar, Union
 
 from pydantic import BaseModel
 
-from horsona.llm.base_engine import AsyncLLMEngine
+from horsona.llm.base_engine import AsyncLLMEngine, LLMMetrics
+from horsona.llm.chat_engine import AsyncChatEngine
 from horsona.memory.gist_module import GistModule
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
 
-class ReadAgentLLMEngine(AsyncLLMEngine):
+class ReadAgentLLMEngine(AsyncChatEngine):
     def __init__(
         self,
         underlying_llm: AsyncLLMEngine,
@@ -21,9 +22,6 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
         self.underlying_llm = underlying_llm
         self.gist_module = gist_module
         self.max_pages = max_pages
-
-    async def query(self, **kwargs) -> tuple[str, int]:
-        return await self.underlying_llm.query(**kwargs), 0
 
     async def _get_gist_context(self, **kwargs) -> dict:
         # Get the main prompt/task from kwargs
@@ -78,47 +76,14 @@ class ReadAgentLLMEngine(AsyncLLMEngine):
 
         return [self.gist_module.available_pages[i] for i in target_pages]
 
-    async def query_object(self, response_model: Type[T], **kwargs) -> T:
-        api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
-        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
+    async def hook_prompt_args(self, **prompt_args) -> str:
+        return {
+            **prompt_args,
+            "GIST_CONTEXT": self.gist_module.available_gists,
+            "POTENTIALLY_RELEVANT_PAGES": await self._get_gist_context(**prompt_args),
+        }
 
-        # Get gist context
-        retrieved_pages = await self._get_gist_context(**prompt_args)
-
-        # Add gist context to kwargs and query underlying LLM
-        return await self.underlying_llm.query_object(
-            response_model,
-            GIST_CONTEXT=self.gist_module.available_gists,
-            POTENTIALLY_RELEVANT_PAGES=retrieved_pages,
-            **kwargs,
-        )
-
-    async def query_block(self, block_type: str, **kwargs) -> str:
-        api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
-        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
-
-        # Get gist context
-        retrieved_pages = await self._get_gist_context(**prompt_args)
-
-        # Add gist context to kwargs and query underlying LLM
-        return await self.underlying_llm.query_block(
-            block_type,
-            GIST_CONTEXT=self.gist_module.available_gists,
-            POTENTIALLY_RELEVANT_PAGES=retrieved_pages,
-            **kwargs,
-        )
-
-    async def query_continuation(self, prompt: str, **kwargs) -> str:
-        api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
-        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
-
-        # Get gist context
-        retrieved_pages = await self._get_gist_context(PROMPT=prompt, **prompt_args)
-
-        # Add gist context to kwargs and query underlying LLM
-        return await self.underlying_llm.query_continuation(
-            prompt,
-            GIST_CONTEXT=self.gist_module.available_gists,
-            POTENTIALLY_RELEVANT_PAGES=retrieved_pages,
-            **kwargs,
-        )
+    async def query(
+        self, metrics: LLMMetrics | None = None, **kwargs
+    ) -> tuple[str, int]:
+        return await self.underlying_llm.query(metrics=metrics, **kwargs)

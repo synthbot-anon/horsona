@@ -1,8 +1,9 @@
 import json
 import os
-import re
 
 import httpx
+
+from horsona.llm.base_engine import LLMMetrics
 
 from .chat_engine import AsyncChatEngine
 from .engine_utils import clean_json_string
@@ -35,7 +36,7 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         self.model = model
         self.apikey = os.environ["PERPLEXITY_API_KEY"]
 
-    async def query(self, **kwargs) -> tuple[str, int]:
+    async def query(self, metrics: LLMMetrics = None, **kwargs) -> tuple[str, int]:
         url = "https://api.perplexity.ai/chat/completions"
 
         payload = {
@@ -59,4 +60,6 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         content = response_json["choices"][0]["message"]["content"]
         total_tokens = response_json["usage"]["total_tokens"]
 
-        return content, total_tokens
+        metrics.tokens_consumed = total_tokens
+
+        return content

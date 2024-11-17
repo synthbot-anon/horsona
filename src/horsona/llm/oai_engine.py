@@ -5,6 +5,8 @@ from typing import Type, Union
 from openai.types.chat.chat_completion import ChatCompletion
 from pydantic import BaseModel
 
+from horsona.llm.base_engine import LLMMetrics
+
 from .chat_engine import AsyncChatEngine
 from .engine_utils import compile_user_prompt
 
@@ -16,12 +18,15 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
     @abstractmethod
     async def create(self, **kwargs) -> ChatCompletion: ...
 
-    async def query(self, prompt: str = None, **kwargs) -> tuple[str, int]:
+    async def query(
+        self, prompt: str = None, metrics: LLMMetrics = None, **kwargs
+    ) -> tuple[str, int]:
         if prompt is not None:
             kwargs.setdefault("messages", []).append(
                 {"role": "user", "content": prompt}
             )
 
+        print("creating from", kwargs)
         response: ChatCompletion = await self.create(**kwargs)
         tokens_consumed = response.usage.total_tokens
 
@@ -43,13 +48,13 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
             # Edge case where if we forced the model to call one of our functions
             (tool_required and finish_reason == "stop")
         ):
-            return [
-                x.function for x in response.choices[0].message.tool_calls
-            ], tokens_consumed
+            metrics.tokens_consumed += tokens_consumed
+            return [x.function for x in response.choices[0].message.tool_calls]
 
         # Else the model is responding directly to the user
         elif finish_reason == "stop":
-            return response.choices[0].message.content, tokens_consumed
+            metrics.tokens_consumed += tokens_consumed
+            return response.choices[0].message.content
 
         # Catch any other case, this is unexpected
         else:
