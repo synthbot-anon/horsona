@@ -43,7 +43,8 @@ class ReadAgentLLMEngine(AsyncChatEngine):
             TASK=(
                 "You have access to a list of available gists and pages in GISTS. "
                 f"Select 0 to {self.max_pages} items that are relevant to the {prompt_key}. "
-                "Return the list of page numbers as a list of integers."
+                "The result should only include page indices (integers). "
+                "If selecting 0 pages, return an empty list."
             ),
         )
 
