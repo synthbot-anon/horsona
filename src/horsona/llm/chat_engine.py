@@ -47,11 +47,11 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
-        prompt = await compile_user_prompt(**prompt_args)
+        prompt_references = await compile_user_prompt(**prompt_args)
 
         response = await self.query(
             messages=[
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": prompt_references},
                 {"role": "assistant", "content": prompt},
                 {
                     "role": "user",
