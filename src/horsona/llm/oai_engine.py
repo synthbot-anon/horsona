@@ -26,7 +26,6 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
                 {"role": "user", "content": prompt}
             )
 
-        print("creating from", kwargs)
         response: ChatCompletion = await self.create(**kwargs)
         tokens_consumed = response.usage.total_tokens
 
