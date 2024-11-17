@@ -25,8 +25,13 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
+        prior_messages = kwargs.get("messages", [])
+
         response = await self.query(
-            messages=await generate_obj_query_messages(response_model, prompt_args),
+            messages=[
+                *prior_messages,
+                *await generate_obj_query_messages(response_model, prompt_args),
+            ],
             **api_args,
         )
 
@@ -36,8 +41,13 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
+        prior_messages = kwargs.get("messages", [])
+
         response = await self.query(
-            messages=await _generate_block_query_messages(block_type, prompt_args),
+            messages=[
+                *prior_messages,
+                *await _generate_block_query_messages(block_type, prompt_args),
+            ],
             **api_args,
         )
 
@@ -47,10 +57,12 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
+        prior_messages = kwargs.get("messages", [])
         prompt_references = await compile_user_prompt(**prompt_args)
 
         response = await self.query(
             messages=[
+                *prior_messages,
                 {"role": "user", "content": prompt_references},
                 {"role": "assistant", "content": prompt},
                 {
