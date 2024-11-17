@@ -101,8 +101,11 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
             for tool in tools
         ]
 
+        prior_messages = kwargs.get("messages", [])
+
         args = {
             "messages": [
+                *prior_messages,
                 {"role": "user", "content": await compile_user_prompt(**prompt_args)},
             ],
             "tools": tool_schemas,
