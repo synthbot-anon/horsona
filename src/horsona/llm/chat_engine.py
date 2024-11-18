@@ -26,7 +26,6 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
         prior_messages = kwargs.get("messages", [])
-        prompt_args = await self.hook_prompt_args(**prompt_args)
 
         response = await self.query(
             messages=[
@@ -43,7 +42,6 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
         prior_messages = kwargs.get("messages", [])
-        prompt_args = await self.hook_prompt_args(**prompt_args)
 
         response = await self.query(
             messages=[
@@ -61,10 +59,6 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
 
         prior_messages = kwargs.get("messages", [])
 
-        temp_args = {**prompt_args, "__USER_PROMPT": prompt}
-        prompt_args = await self.hook_prompt_args(**temp_args)
-        del prompt_args["__USER_PROMPT"]
-
         prompt_references = await compile_user_prompt(**prompt_args)
 
         response = await self.query(
@@ -81,9 +75,6 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         )
 
         return response
-
-    async def hook_prompt_args(self, **prompt_args) -> str:
-        return prompt_args
 
 
 async def _generate_block_query_messages(block_type: str, prompt_args):

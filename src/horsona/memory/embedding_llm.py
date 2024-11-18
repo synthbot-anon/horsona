@@ -6,12 +6,13 @@ from horsona.autodiff.variables import Value
 from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.llm.base_engine import AsyncLLMEngine, LLMMetrics
 from horsona.llm.chat_engine import AsyncChatEngine
+from horsona.llm.custom_llm import CustomLLMEngine
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
 
-class EmbeddingLLMEngine(AsyncChatEngine):
+class EmbeddingLLMEngine(CustomLLMEngine):
     def __init__(
         self,
         underlying_llm: AsyncLLMEngine,
@@ -19,8 +20,7 @@ class EmbeddingLLMEngine(AsyncChatEngine):
         database_query_kwargs: dict = {},
         **kwargs,
     ):
-        super().__init__(**kwargs)
-        self.underlying_llm = underlying_llm
+        super().__init__(underlying_llm, **kwargs)
         self.database = database
         self.database_query_kwargs = database_query_kwargs
 
@@ -67,8 +67,3 @@ class EmbeddingLLMEngine(AsyncChatEngine):
                 **prompt_args,
             ),
         }
-
-    async def query(
-        self, metrics: LLMMetrics | None = None, **kwargs
-    ) -> tuple[str, int]:
-        return await self.underlying_llm.query(metrics=metrics, **kwargs)

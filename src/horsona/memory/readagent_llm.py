@@ -3,14 +3,14 @@ from typing import Type, TypeVar, Union
 from pydantic import BaseModel
 
 from horsona.llm.base_engine import AsyncLLMEngine, LLMMetrics
-from horsona.llm.chat_engine import AsyncChatEngine
+from horsona.llm.custom_llm import CustomLLMEngine
 from horsona.memory.gist_module import GistModule
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
 
-class ReadAgentLLMEngine(AsyncChatEngine):
+class ReadAgentLLMEngine(CustomLLMEngine):
     def __init__(
         self,
         underlying_llm: AsyncLLMEngine,
@@ -18,8 +18,7 @@ class ReadAgentLLMEngine(AsyncChatEngine):
         max_pages: int = 3,
         **kwargs,
     ):
-        super().__init__(**kwargs)
-        self.underlying_llm = underlying_llm
+        super().__init__(underlying_llm, **kwargs)
         self.gist_module = gist_module
         self.max_pages = max_pages
 
@@ -83,8 +82,3 @@ class ReadAgentLLMEngine(AsyncChatEngine):
             "GIST_CONTEXT": self.gist_module.available_gists,
             "POTENTIALLY_RELEVANT_PAGES": await self._get_gist_context(**prompt_args),
         }
-
-    async def query(
-        self, metrics: LLMMetrics | None = None, **kwargs
-    ) -> tuple[str, int]:
-        return await self.underlying_llm.query(metrics=metrics, **kwargs)
