@@ -1,9 +1,9 @@
+from typing import AsyncGenerator
+
 from groq import AsyncGroq
+from groq.types.chat import ChatCompletion, ChatCompletionChunk
 
-from horsona.llm.base_engine import LLMMetrics
 from horsona.llm.oai_engine import AsyncOAIEngine
-
-from .chat_engine import AsyncChatEngine
 
 
 class AsyncGroqEngine(AsyncOAIEngine):
@@ -17,7 +17,7 @@ class AsyncGroqEngine(AsyncOAIEngine):
         client (AsyncGroq): An instance of the asynchronous Groq client for API interactions.
 
     Inherits from:
-        AsyncChatEngine
+        AsyncOAIEngine: Base class for OpenAI-compatible API engines
     """
 
     def __init__(self, model: str, *args, **kwargs):
@@ -33,7 +33,19 @@ class AsyncGroqEngine(AsyncOAIEngine):
         self.model = model
         self.client = AsyncGroq()
 
-    async def create(self, **kwargs):
+    async def create(
+        self, **kwargs
+    ) -> AsyncGenerator[ChatCompletionChunk, None] | ChatCompletion:
+        """
+        Create a chat completion using the Groq API.
+
+        Args:
+            **kwargs: Keyword arguments to pass to the Groq API.
+                     The model name will be automatically added.
+
+        Returns:
+            Completion: The completion response from the Groq API.
+        """
         kwargs["model"] = self.model
 
         if "stream_options" in kwargs:

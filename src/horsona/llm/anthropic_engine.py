@@ -3,9 +3,7 @@ from typing import AsyncGenerator
 from anthropic import AsyncAnthropic
 
 from horsona.llm.base_engine import LLMMetrics
-from horsona.llm.oai_engine import AsyncOAIEngine
-
-from .chat_engine import AsyncChatEngine
+from horsona.llm.chat_engine import AsyncChatEngine
 
 
 class AsyncAnthropicEngine(AsyncChatEngine):
@@ -27,7 +25,7 @@ class AsyncAnthropicEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncAnthropic()
 
-    async def query(self, metrics: LLMMetrics = None, **kwargs) -> tuple[str, int]:
+    async def query(self, metrics: LLMMetrics = None, **kwargs) -> str:
         system_msg = []
         messages = kwargs["messages"]
         for i in reversed(range(len(messages))):

@@ -36,7 +36,7 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         self.model = model
         self.apikey = os.environ["PERPLEXITY_API_KEY"]
 
-    async def query(self, metrics: LLMMetrics = None, **kwargs) -> tuple[str, int]:
+    async def query(self, metrics: LLMMetrics = None, **kwargs) -> str:
         url = "https://api.perplexity.ai/chat/completions"
 
         payload = {
