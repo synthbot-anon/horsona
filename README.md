@@ -164,7 +164,7 @@ docker exec ollama ollama pull imcurie/bge-large-en-v1.5
 This target feature list is incomplete:
 ```diff
 - Video generation (via API) alongside text generation
-- Integrations with various text generation interfaces (SillyTavern, Risu, etc.)
++ [Done] Integrations with various text generation interfaces (SillyTavern, Risu, etc.)
 - Integration with ComfyUI
 ! [Missing tests] Automated character card adjustments
 - Lorebook generation from large text corpora
@@ -178,9 +178,9 @@ This target feature list is incomplete:
 + [Done] Continue generating the input, as opposed to responding to it (like non-chat GPTs)
 - Jailbreak support
 - Fine-tuning dataset creation
-- Speech generation and voice morphing the results
-- Streaming outputs
-- Integration with game engines
++ [Done] Speech generation
++ [Done] Streaming outputs
++ [Done] Integration with game engines
 ! [Missing tests] Actions (function call) outputs
 ```
 
