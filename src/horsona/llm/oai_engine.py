@@ -26,9 +26,7 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
                 {"role": "user", "content": prompt}
             )
 
-        print("calling create")
         response: ChatCompletion = await self.create(**kwargs)
-        print("create returned")
 
         tokens_consumed = response.usage.total_tokens
 
@@ -162,5 +160,3 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
             if chunk.choices:
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
-
-        print("Tokens consumed:", metrics.tokens_consumed)
