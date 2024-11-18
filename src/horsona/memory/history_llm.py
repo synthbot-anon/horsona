@@ -22,6 +22,6 @@ class HistoryLLMEngine(CustomLLMEngine):
 
     async def hook_prompt_args(self, **prompt_args) -> str:
         return {
-            **prompt_args,
             "HISTORY_CONTEXT": self.history_module.get_items(),
+            **prompt_args,
         }

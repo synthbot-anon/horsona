@@ -62,8 +62,8 @@ class EmbeddingLLMEngine(CustomLLMEngine):
 
     async def hook_prompt_args(self, **prompt_args) -> T:
         return {
-            **prompt_args,
             "RETRIEVED_CONTEXT": await self._get_search_results(
                 **prompt_args,
             ),
+            **prompt_args,
         }

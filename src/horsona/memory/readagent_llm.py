@@ -78,7 +78,7 @@ class ReadAgentLLMEngine(CustomLLMEngine):
 
     async def hook_prompt_args(self, **prompt_args) -> str:
         return {
-            **prompt_args,
             "GIST_CONTEXT": self.gist_module.available_gists,
             "POTENTIALLY_RELEVANT_PAGES": await self._get_gist_context(**prompt_args),
+            **prompt_args,
         }
