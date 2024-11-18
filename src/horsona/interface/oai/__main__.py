@@ -13,18 +13,12 @@ engines = load_engines()
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Horsona OAI API")
-    parser.add_argument(
-        "--extra-modules", nargs="+", default=[], help="Extra modules to allow"
-    )
-    args = parser.parse_args()
-
     app = FastAPI(title="Horsona OAI")
     app.include_router(oai.api_router)
     for engine in engines.values():
         oai.add_llm_engine(engine)
 
-    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
+    config = uvicorn.Config(app, host="0.0.0.0", port=8001, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 

@@ -44,3 +44,24 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: list[ChatCompletionChoice]
     usage: ChatCompletionUsage
+
+
+class DeltaMessage(BaseModel):
+    role: Optional[str] = None
+    content: Optional[str] = None
+
+
+class ChatCompletionChunkChoice(BaseModel):
+    index: int
+    delta: DeltaMessage
+    finish_reason: Optional[str] = None
+
+
+class ChatCompletionChunkResponse(BaseModel):
+    id: str = Field(
+        default_factory=lambda: "chatcmpl-" + str(id(ChatCompletionChunkResponse))
+    )
+    object: str = "chat.completion.chunk"
+    created: int = Field(default_factory=lambda: int(__import__("time").time()))
+    model: str
+    choices: list[ChatCompletionChunkChoice]

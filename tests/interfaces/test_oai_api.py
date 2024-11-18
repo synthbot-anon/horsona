@@ -15,7 +15,7 @@ async def oai_server(reasoning_llm):
     app.include_router(oai.api_router)
     oai.add_llm_engine(reasoning_llm)
 
-    config = uvicorn.Config(app, host="127.0.0.1", port=8000)
+    config = uvicorn.Config(app, host="127.0.0.1", port=8001)
     server = uvicorn.Server(config)
 
     # Temporarily suppress logging
@@ -51,7 +51,7 @@ async def oai_server(reasoning_llm):
 async def test_chat_completion(oai_server):
     # Initialize client pointing to local server
     oai_client = AsyncOpenAI(
-        base_url="http://127.0.0.1:8000/api/v1",
+        base_url="http://127.0.0.1:8001/api/v1",
         api_key="not-needed",  # API key not needed for local server
     )
 
@@ -72,3 +72,36 @@ async def test_chat_completion(oai_server):
         "hello" in response.choices[0].message.content.lower()
         and "world" in response.choices[0].message.content.lower()
     )
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_stream(oai_server):
+    # Initialize client pointing to local server
+    oai_client = AsyncOpenAI(
+        base_url="http://127.0.0.1:8001/api/v1",
+        api_key="not-needed",  # API key not needed for local server
+    )
+
+    # Send streaming chat completion request
+    stream = await oai_client.chat.completions.create(
+        model="reasoning_llm",
+        messages=[{"role": "user", "content": "say hello world"}],
+        stream=True,
+    )
+
+    # Collect all chunks
+    chunks = []
+    content = ""
+    async for chunk in stream:
+        chunks.append(chunk)
+        if chunk.choices[0].delta.content:
+            content += chunk.choices[0].delta.content
+
+    # Verify chunks structure
+    assert len(chunks) > 0
+    assert all(hasattr(chunk, "choices") for chunk in chunks)
+    assert all(len(chunk.choices) > 0 for chunk in chunks)
+    assert all(hasattr(chunk.choices[0], "delta") for chunk in chunks)
+
+    # Verify final content
+    assert "hello" in content.lower() and "world" in content.lower()
