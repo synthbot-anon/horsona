@@ -1,6 +1,6 @@
 import json
 from abc import ABC, abstractmethod
-from typing import Type, Union
+from typing import AsyncGenerator, Type, Union
 
 from openai.types.chat.chat_completion import ChatCompletion
 from pydantic import BaseModel
@@ -26,7 +26,10 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
                 {"role": "user", "content": prompt}
             )
 
+        print("calling create")
         response: ChatCompletion = await self.create(**kwargs)
+        print("create returned")
+
         tokens_consumed = response.usage.total_tokens
 
         tool_required = kwargs.get("tool_choice", "auto") != "auto"
@@ -51,7 +54,7 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
             return [x.function for x in response.choices[0].message.tool_calls]
 
         # Else the model is responding directly to the user
-        elif finish_reason == "stop":
+        elif finish_reason in ("stop", "eos"):
             metrics.tokens_consumed += tokens_consumed
             return response.choices[0].message.content
 
@@ -138,3 +141,26 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
             response.append(fn(**args))
 
         return response
+
+    async def query_stream(
+        self, metrics: LLMMetrics = None, **kwargs
+    ) -> AsyncGenerator[str, None]:
+        new_kwargs = kwargs.copy()
+        new_kwargs["stream"] = True
+        new_kwargs["stream_options"] = {"include_usage": True}
+
+        async for chunk in await self.create(**new_kwargs):
+            if metrics is not None:
+                if hasattr(chunk, "usage") and chunk.usage is not None:
+                    # With include_usage, the final chunk object should include the total tokens consumed
+                    # So we can override our default assumption of 1 token on the final chunk
+                    metrics.tokens_consumed = chunk.usage.total_tokens
+                else:
+                    # By default, assume 1 token per chunk
+                    metrics.tokens_consumed += 1
+
+            if chunk.choices:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+
+        print("Tokens consumed:", metrics.tokens_consumed)

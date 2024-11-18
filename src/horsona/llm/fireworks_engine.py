@@ -1,5 +1,6 @@
 import os
 import warnings
+from typing import AsyncGenerator
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -38,6 +39,16 @@ class AsyncFireworksEngine(AsyncOAIEngine):
         self.client = AsyncFireworks(api_key=os.environ["FIREWORKS_API_KEY"])
 
     async def create(self, **kwargs) -> Completion:
-        return await self.client.chat.completions.acreate(
-            model=self.model, stream=False, **kwargs
-        )
+        kwargs["model"] = self.model
+        if "stream" not in kwargs:
+            kwargs["stream"] = False
+
+        if "stream_options" in kwargs:
+            del kwargs["stream_options"]
+
+        result = self.client.chat.completions.acreate(**kwargs)
+
+        if isinstance(result, AsyncGenerator):
+            return result
+        else:
+            return await result

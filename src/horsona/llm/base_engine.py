@@ -4,7 +4,7 @@ import json
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Type, TypeVar, Union
+from typing import AsyncGenerator, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -255,24 +255,50 @@ class AsyncLLMEngine(HorseData, ABC):
         self = super().__new__(cls)
 
         original_query = self.query
+        original_query_stream = self.query_stream
 
         @functools.wraps(original_query)
         async def wrapped_query(
             *args, metrics: Optional[LLMMetrics] = None, **kwargs
-        ) -> tuple[str, int]:
+        ) -> str:
             await self.rate_limit.consume_call()
-            if metrics is None:
-                metrics = LLMMetrics()
+            new_metrics = LLMMetrics()
 
             content = await original_query(
-                *args, metrics=metrics, **{**self.kwargs, **kwargs}
+                *args, metrics=new_metrics, **{**self.kwargs, **kwargs}
             )
 
-            self.rate_limit.report_tokens_consumed(metrics.tokens_consumed)
+            self.rate_limit.report_tokens_consumed(new_metrics.tokens_consumed)
+            if metrics is not None:
+                metrics.tokens_consumed += new_metrics.tokens_consumed
+
             return content
 
+        @functools.wraps(original_query_stream)
+        async def wrapped_query_stream(
+            *args, metrics: Optional[LLMMetrics] = None, **kwargs
+        ) -> AsyncGenerator[str, None]:
+            await self.rate_limit.consume_call()
+            new_metrics = LLMMetrics()
+
+            async for chunk in original_query_stream(
+                *args, metrics=new_metrics, **{**self.kwargs, **kwargs}
+            ):
+                new_consumed = new_metrics.tokens_consumed - new_metrics.tokens_consumed
+                self.rate_limit.report_tokens_consumed(new_consumed)
+                if metrics is not None:
+                    metrics.tokens_consumed += new_consumed
+                yield chunk
+
         self.query = wrapped_query
+        self.query_stream = wrapped_query_stream
         return self
+
+    async def query_stream(
+        self, metrics: LLMMetrics = None, **kwargs
+    ) -> AsyncGenerator[str, None]:
+        response: str = await self.query(metrics=metrics, **kwargs)
+        yield response
 
     def state_dict(self, **override) -> dict:
         if self.name is not None:

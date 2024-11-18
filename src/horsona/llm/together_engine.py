@@ -1,11 +1,12 @@
 from together import AsyncTogether
 
 from horsona.llm.base_engine import LLMMetrics
+from horsona.llm.oai_engine import AsyncOAIEngine
 
 from .chat_engine import AsyncChatEngine
 
 
-class AsyncTogetherEngine(AsyncChatEngine):
+class AsyncTogetherEngine(AsyncOAIEngine):
     """
     An asynchronous implementation of ChatEngine for interacting with Together models.
 
@@ -32,9 +33,6 @@ class AsyncTogetherEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncTogether()
 
-    async def query(self, metrics: LLMMetrics = None, **kwargs) -> tuple[str, int]:
-        response = await self.client.chat.completions.create(
-            model=self.model, stream=False, **kwargs
-        )
-        metrics.tokens_consumed = response.usage.total_tokens
-        return response.choices[0].message.content
+    async def create(self, **kwargs):
+        kwargs["model"] = self.model
+        return await self.client.chat.completions.create(**kwargs)

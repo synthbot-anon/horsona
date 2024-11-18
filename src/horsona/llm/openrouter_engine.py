@@ -29,4 +29,5 @@ class AsyncOpenRouterEngine(AsyncOAIEngine):
         )
 
     async def create(self, **kwargs) -> Completion:
-        return await self.client.chat.completions.create(model=self.model, **kwargs)
+        kwargs["model"] = self.model
+        return await self.client.chat.completions.create(**kwargs)

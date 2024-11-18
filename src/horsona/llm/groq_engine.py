@@ -1,11 +1,12 @@
 from groq import AsyncGroq
 
 from horsona.llm.base_engine import LLMMetrics
+from horsona.llm.oai_engine import AsyncOAIEngine
 
 from .chat_engine import AsyncChatEngine
 
 
-class AsyncGroqEngine(AsyncChatEngine):
+class AsyncGroqEngine(AsyncOAIEngine):
     """
     An asynchronous implementation of ChatEngine for interacting with Groq models.
 
@@ -32,9 +33,10 @@ class AsyncGroqEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncGroq()
 
-    async def query(self, metrics: LLMMetrics = None, **kwargs) -> tuple[str, int]:
-        response = await self.client.chat.completions.create(
-            model=self.model, stream=False, **kwargs
-        )
-        metrics.tokens_consumed += response.usage.total_tokens
-        return response.choices[0].message.content
+    async def create(self, **kwargs):
+        kwargs["model"] = self.model
+
+        if "stream_options" in kwargs:
+            del kwargs["stream_options"]
+
+        return await self.client.chat.completions.create(**kwargs)
