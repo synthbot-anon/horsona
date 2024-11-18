@@ -22,63 +22,73 @@ class ReadAgentLLMEngine(CustomLLMEngine):
         self.gist_module = gist_module
         self.max_pages = max_pages
 
-    async def _get_gist_context(self, **kwargs) -> dict:
-        # Get the main prompt/task from kwargs
-        kwargs_clone = kwargs.copy()
-        if "TASK" in kwargs_clone:
-            kwargs_clone["__USER_TASK"] = kwargs_clone.pop("TASK")
-            prompt_key = "__USER_TASK"
-        else:
-            prompt_key = list(kwargs_clone.keys())[-1]
-
-        # Retrieve relevant pages from gists
-        class RelevantPages(BaseModel):
-            pages: list[int | str | None] | None
-
-        relevant_pages = await self.underlying_llm.query_object(
-            RelevantPages,
-            GISTS=self.gist_module.available_gists,
-            **kwargs_clone,
-            TASK=(
-                "You have access to a list of available gists and pages in GISTS. "
-                f"Select 0 to {self.max_pages} items that are relevant to the {prompt_key}. "
-                "The result should only include page indices (integers). "
-                "If selecting 0 pages, return an empty list."
-            ),
-        )
-
-        # Clean the result
-        cleaned_pages: list[int] = []
-        for page in relevant_pages.pages:
-            if page is None:
-                continue
-
-            try:
-                cleaned_pages.append(int(page))
-                continue
-            except ValueError:
-                pass
-
-            if "." in str(page):
-                for piece in str(page).split(".")[::-1]:
-                    try:
-                        cleaned_pages.append(int(piece))
-                        break
-                    except ValueError:
-                        continue
-
-        target_pages = []
-        for i in reversed(sorted(cleaned_pages)):
-            if i > 0 and i < len(self.gist_module.available_pages):
-                target_pages.append(i)
-            if len(target_pages) == self.max_pages:
-                break
-
-        return [self.gist_module.available_pages[i] for i in target_pages]
-
     async def hook_prompt_args(self, **prompt_args) -> str:
         return {
             "GIST_CONTEXT": self.gist_module.available_gists,
-            "POTENTIALLY_RELEVANT_PAGES": await self._get_gist_context(**prompt_args),
+            "POTENTIALLY_RELEVANT_PAGES": await get_relevant_pages(
+                self.underlying_llm,
+                self.gist_module.available_gists,
+                self.gist_module.available_pages,
+                self.max_pages,
+                **prompt_args,
+            ),
             **prompt_args,
         }
+
+
+async def get_relevant_pages(
+    llm: AsyncLLMEngine, gists: list[str], pages: list[str], max_results: int, **kwargs
+) -> dict:
+    assert len(gists) == len(pages)
+
+    # Get the main prompt/task from kwargs
+    if "TASK" in kwargs:
+        kwargs["__USER_TASK"] = kwargs.pop("TASK")
+        prompt_key = "__USER_TASK"
+    else:
+        prompt_key = list(kwargs.keys())[-1]
+
+    # Retrieve relevant pages from gists
+    class RelevantPages(BaseModel):
+        pages: list[int | str | None] | None
+
+    relevant_pages = await llm.query_object(
+        RelevantPages,
+        GISTS=gists,
+        **kwargs,
+        TASK=(
+            "You have access to a list of available gists and pages in GISTS. "
+            f"Select 0 to {max_results} gist indices whose pages might be relevant to the {prompt_key}. "
+            "The result should only include gist indices (integers). "
+            "If selecting 0 gists, return an empty list."
+        ),
+    )
+
+    # Clean the result
+    cleaned_pages: list[int] = []
+    for page in relevant_pages.pages:
+        if page is None:
+            continue
+
+        try:
+            cleaned_pages.append(int(page))
+            continue
+        except ValueError:
+            pass
+
+        if "." in str(page):
+            for piece in str(page).split(".")[::-1]:
+                try:
+                    cleaned_pages.append(int(piece))
+                    break
+                except ValueError:
+                    continue
+
+    target_pages = []
+    for i in reversed(sorted(cleaned_pages)):
+        if i > 0 and i < len(pages):
+            target_pages.append(i)
+        if len(target_pages) == max_results:
+            break
+
+    return [pages[i] for i in target_pages]

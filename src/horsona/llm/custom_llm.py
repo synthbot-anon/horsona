@@ -46,6 +46,20 @@ class CustomLLMEngine(AsyncChatEngine):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
+        converted_args = False
+        if not prompt_args and "messages" in api_args:
+            prompt_args = {
+                "CHAT_HISTORY": api_args["messages"],
+                "TASK": "Respond as the assistant based on the last user message in the CHAT_HISTORY.",
+            }
+            converted_args = True
+
         prompt_args = await self.hook_prompt_args(**prompt_args)
+
+        if converted_args:
+            if "CHAT_HISTORY" in prompt_args:
+                del prompt_args["CHAT_HISTORY"]
+            if "TASK" in prompt_args:
+                del prompt_args["TASK"]
 
         return {**prompt_args, **api_args}

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import TypeVar, Union
 
 from pydantic import BaseModel
@@ -25,38 +26,20 @@ class EmbeddingLLMEngine(CustomLLMEngine):
         self.database_query_kwargs = database_query_kwargs
 
     async def _get_search_results(self, **kwargs) -> dict[str, str]:
-        # Convert prompt into search queries
-        class Search(BaseModel):
-            queries: list[str]
-
-        kwargs_clone = kwargs.copy()
-        if "TASK" in kwargs_clone:
-            kwargs_clone["__USER_TASK"] = kwargs_clone.pop("TASK")
-            prompt_key = "__USER_TASK"
-        else:
-            prompt_key = list(kwargs_clone.keys())[-1]
-
-        search = await self.underlying_llm.query_object(
-            Search,
-            **kwargs_clone,
-            TASK=(
-                f"You are trying to understand the given {prompt_key}. "
-                "You have access to a search engine that can retrieve relevant information. "
-                f"Suggest keyword search queries that would provide better context for understanding the {prompt_key}."
-            ),
-        )
+        searches = await get_relevant_queries(self.underlying_llm, **kwargs)
 
         search_queries = Value(
             "Search queries",
-            [Value("Search query", x, predecessors=[]) for x in search.queries],
+            [Value("Search query", x, predecessors=[]) for x in searches.keys()],
             predecessors=[],
         )
 
         # Look up responses for each search query
-        search_results = {}
+        search_results = defaultdict(lambda: [])
         for q in search_queries.value:
             result = await self.database.query(q.value, **self.database_query_kwargs)
-            search_results.update(result)
+            for key, value in result.items():
+                search_results[key].append(value)
 
         return search_results
 
@@ -67,3 +50,30 @@ class EmbeddingLLMEngine(CustomLLMEngine):
             ),
             **prompt_args,
         }
+
+
+async def get_relevant_queries(llm: AsyncLLMEngine, **kwargs) -> dict[str, int]:
+    # Convert prompt into search queries
+    class Search(BaseModel):
+        queries: dict[str, int]
+
+    if "TASK" in kwargs:
+        kwargs["__USER_TASK"] = kwargs.pop("TASK")
+        prompt_key = "__USER_TASK"
+    elif kwargs:
+        prompt_key = list(kwargs.keys())[-1]
+    else:
+        prompt_key = "request"
+
+    search = await llm.query_object(
+        Search,
+        **kwargs,
+        TASK=(
+            f"You are trying to understand the given {prompt_key}. "
+            "You have access to a search engine that can retrieve relevant information. "
+            f"Suggest keyword search queries that would provide better context for understanding the {prompt_key}. "
+            "For each query, also specify a weight between 0 and 10 that indicates its importance."
+        ),
+    )
+
+    return search.queries

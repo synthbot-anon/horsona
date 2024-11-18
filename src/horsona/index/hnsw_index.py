@@ -22,6 +22,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
         next_index: int = None,
         space: str = None,
         dim: int = None,
+        ef_construction: int = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -36,6 +37,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
         self.space = space or "l2"
         self.dim = dim or None
         self.embeddings = embeddings
+        self.ef_construction = ef_construction or 200
 
     def state_dict(self) -> dict:
         if self.embeddings is None:
@@ -100,7 +102,7 @@ class HnswEmbeddingIndex(EmbeddingIndex):
             self.embeddings = hnswlib.Index(space=self.space, dim=self.dim)
             self.embeddings.init_index(
                 max_elements=max_elements,
-                ef_construction=200,
+                ef_construction=self.ef_construction,
                 M=16,
                 allow_replace_deleted=True,
             )
@@ -109,7 +111,9 @@ class HnswEmbeddingIndex(EmbeddingIndex):
                 self.embeddings.resize_index(max_elements)
                 self.index_size = max_elements
 
-    async def query(self, query: str, topk: int) -> dict:
+    async def query_with_weights(
+        self, query: str, topk: int
+    ) -> dict[str, tuple[str, float]]:
         if self.embeddings is None:
             return {}
 
@@ -119,11 +123,17 @@ class HnswEmbeddingIndex(EmbeddingIndex):
         if topk == 0:
             return {}
 
+        if topk > len(self.index_to_value):
+            topk = len(self.index_to_value)
+
+        ef = min(topk * 10, self.ef_construction)
+        self.embeddings.set_ef(ef)
+
         query_emb = await self.model.get_query_embeddings([query])
         indices, distances = self.embeddings.knn_query(query_emb, k=topk)
         values = [self.index_to_value[i] for i in indices[0]]
 
-        return dict(zip(indices[0], values))
+        return dict(zip(indices[0], zip(values, distances[0].tolist())))
 
     async def extend(self, data: list[str]) -> None:
         if not data:
