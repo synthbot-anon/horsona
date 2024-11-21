@@ -1,9 +1,9 @@
 from abc import ABC
-from typing import Type, TypeVar, Union
+from typing import Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
-from .base_engine import AsyncLLMEngine
+from .base_engine import AsyncLLMEngine, LLMMetrics
 from .engine_utils import (
     compile_user_prompt,
     generate_obj_query_messages,

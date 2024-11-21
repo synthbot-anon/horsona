@@ -3,14 +3,15 @@ from typing import Type, TypeVar, Union
 from pydantic import BaseModel
 
 from horsona.llm.base_engine import AsyncLLMEngine, LLMMetrics
-from horsona.llm.custom_llm import CustomLLMEngine
+from horsona.llm.engine_utils import compile_user_prompt
+from horsona.llm.wrapper_llm import WrapperLLMEngine
 from horsona.memory.gist_module import GistModule
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
 
-class ReadAgentLLMEngine(CustomLLMEngine):
+class ReadAgentLLMEngine(WrapperLLMEngine):
     def __init__(
         self,
         underlying_llm: AsyncLLMEngine,
@@ -42,13 +43,10 @@ async def get_relevant_pages(
     assert len(gists) == len(pages)
 
     # Get the main prompt/task from kwargs
-    if "TASK" in kwargs:
-        kwargs["__USER_TASK"] = kwargs.pop("TASK")
-        prompt_key = "__USER_TASK"
-    else:
-        prompt_key = list(kwargs.keys())[-1]
-
+    assert "TASK" in kwargs
+    kwargs["READAGENT_TASK"] = kwargs.pop("TASK")
     # Retrieve relevant pages from gists
+
     class RelevantPages(BaseModel):
         pages: list[int | str | None] | None
 
@@ -58,11 +56,14 @@ async def get_relevant_pages(
         **kwargs,
         TASK=(
             "You have access to a list of available gists and pages in GISTS. "
-            f"Select 0 to {max_results} gist indices whose pages might be relevant to the {prompt_key}. "
+            f"Select 0 to {max_results} gist indices whose pages might be relevant to the READAGENT_TASK. "
             "The result should only include gist indices (integers). "
             "If selecting 0 gists, return an empty list."
         ),
     )
+
+    if relevant_pages.pages is None or len(relevant_pages.pages) == 0:
+        return []
 
     # Clean the result
     cleaned_pages: list[int] = []

@@ -21,7 +21,7 @@ async def test_query_block(history_llm):
     # Query should have access to history context
     response = await history_llm.query_block(
         "text",
-        PROMPT="What color was the sky mentioned earlier?",
+        TASK="What color was the sky mentioned earlier?",
     )
 
     assert "red" in response.lower()
@@ -38,7 +38,7 @@ async def test_query_object(history_llm):
     # Query object should have access to history
     response = await history_llm.query_object(
         ColorResponse,
-        PROMPT="What color was the sky mentioned in the history?",
+        TASK="What color was the sky mentioned in the history?",
     )
 
     assert isinstance(response, ColorResponse)

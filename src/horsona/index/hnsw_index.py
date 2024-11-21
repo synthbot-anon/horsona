@@ -28,13 +28,21 @@ class HnswEmbeddingIndex(EmbeddingIndex):
         super().__init__(**kwargs)
         self.model = model
 
-        self.index_to_value = index_to_value or {}
-        self.value_to_index = value_to_index or {}
+        self.index_to_value = {}
+        if index_to_value:
+            for k, v in index_to_value.items():
+                self.index_to_value[int(k)] = v
+
+        self.value_to_index = {}
+        if value_to_index:
+            for k, v in value_to_index.items():
+                self.value_to_index[k] = int(v)
+
         self.indices = indices or []
         self.index_size = index_size or 0
         self.deleted_indices = deleted_indices or set()
         self.next_index = next_index or len(self.index_to_value)
-        self.space = space or "l2"
+        self.space = space or "cosine"
         self.dim = dim or None
         self.embeddings = embeddings
         self.ef_construction = ef_construction or 200
@@ -79,7 +87,9 @@ class HnswEmbeddingIndex(EmbeddingIndex):
         try:
             # Load the index from the temporary file
             embeddings = hnswlib.Index(space=space, dim=dim)
-            embeddings.load_index(temp_path, max_elements=index_size)
+            embeddings.load_index(
+                temp_path, max_elements=index_size, allow_replace_deleted=True
+            )
         finally:
             # Ensure the temporary file is removed
             os.unlink(temp_path)
@@ -131,9 +141,9 @@ class HnswEmbeddingIndex(EmbeddingIndex):
 
         query_emb = await self.model.get_query_embeddings([query])
         indices, distances = self.embeddings.knn_query(query_emb, k=topk)
-        values = [self.index_to_value[i] for i in indices[0]]
+        values = [self.index_to_value[i] for i in indices[0].tolist()]
 
-        return dict(zip(indices[0], zip(values, distances[0].tolist())))
+        return dict(zip(indices[0].tolist(), zip(values, distances[0].tolist())))
 
     async def extend(self, data: list[str]) -> None:
         if not data:

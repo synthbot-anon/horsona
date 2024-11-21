@@ -2,6 +2,7 @@ import json
 from abc import ABC, abstractmethod
 
 from horsona.autodiff.basic import HorseData
+from horsona.config.json_with_comments import load_json_with_comments
 from horsona.index.base_index import BaseIndex
 
 INDEX_CONFIG_PATH = "index_config.json"
@@ -18,7 +19,7 @@ def load_indices() -> dict[str, BaseIndex]:
         return
 
     with open(INDEX_CONFIG_PATH, "r") as f:
-        config = json.load(f)
+        config = load_json_with_comments(f)
 
     indices.clear()
 

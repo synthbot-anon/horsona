@@ -18,19 +18,21 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
     @abstractmethod
     async def create(self, **kwargs) -> ChatCompletion: ...
 
-    async def query(
-        self, prompt: str = None, metrics: LLMMetrics = None, **kwargs
-    ) -> tuple[str, int]:
-        if prompt is not None:
-            kwargs.setdefault("messages", []).append(
-                {"role": "user", "content": prompt}
-            )
+    async def query(self, metrics: LLMMetrics = None, **kwargs) -> tuple[str, int]:
+        api_args = {k: v for k, v in kwargs.items() if k.upper() != k}
+        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
 
-        response: ChatCompletion = await self.create(**kwargs)
+        if prompt_args:
+            api_args["messages"] = [
+                *api_args.get("messages", []),
+                {"role": "user", "content": await compile_user_prompt(**prompt_args)},
+            ]
+
+        response: ChatCompletion = await self.create(**api_args)
 
         tokens_consumed = response.usage.total_tokens
 
-        tool_required = kwargs.get("tool_choice", "auto") != "auto"
+        tool_required = api_args.get("tool_choice", "auto") != "auto"
 
         # Check if the conversation was too long for the context window
         finish_reason = response.choices[0].finish_reason
@@ -143,7 +145,16 @@ class AsyncOAIEngine(AsyncChatEngine, ABC):
     async def query_stream(
         self, metrics: LLMMetrics = None, **kwargs
     ) -> AsyncGenerator[str, None]:
-        new_kwargs = kwargs.copy()
+        api_args = {k: v for k, v in kwargs.items() if k.upper() != k}
+        prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
+
+        if prompt_args:
+            api_args["messages"] = [
+                *api_args.get("messages", []),
+                {"role": "user", "content": await compile_user_prompt(**prompt_args)},
+            ]
+
+        new_kwargs = api_args.copy()
         new_kwargs["stream"] = True
         new_kwargs["stream_options"] = {"include_usage": True}
 

@@ -801,9 +801,6 @@ async def post_resource(session_id, module_name, function_name, body: dict = Bod
 
     result_data, result_argument = pack_result(session_id, [], result, recurse=True)
 
-    print("returning:", result_argument)
-    print("data:", result_data)
-
     return ResourceResponse(
         result=result_argument,
         data=result_data,

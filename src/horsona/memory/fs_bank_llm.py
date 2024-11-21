@@ -1,10 +1,12 @@
+from collections import defaultdict
 from typing import Type, TypeVar, Union
 
 from pydantic import BaseModel
 
 from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.llm.base_engine import AsyncLLMEngine, LLMMetrics
-from horsona.llm.custom_llm import CustomLLMEngine
+from horsona.llm.engine_utils import compile_user_prompt
+from horsona.llm.wrapper_llm import WrapperLLMEngine
 from horsona.memory.embedding_llm import get_relevant_queries
 from horsona.memory.fs_bank_module import FilesystemBankModule
 from horsona.memory.gist_module import GistModule
@@ -14,7 +16,7 @@ T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
 
-class FilesystemBankLLMEngine(CustomLLMEngine):
+class FilesystemBankLLMEngine(WrapperLLMEngine):
     """
     A LLM engine that augments prompts with relevant context from a FilesystemBankModule.
     Retrieves both high-level gists and detailed content from files based on semantic search.
@@ -29,8 +31,8 @@ class FilesystemBankLLMEngine(CustomLLMEngine):
         self,
         underlying_llm: AsyncLLMEngine,
         fs_bank_module: FilesystemBankModule,
-        max_gist_chars: int = 1024,
-        max_page_chars: int = 2048,
+        max_gist_chars: int = 8096,
+        max_page_chars: int = 8096,
         **kwargs,
     ):
         super().__init__(underlying_llm, **kwargs)
@@ -51,7 +53,7 @@ class FilesystemBankLLMEngine(CustomLLMEngine):
         relevant_queries = await get_relevant_queries(self.underlying_llm, **kwargs)
 
         # Search the embedding database with each query and combine results with weights
-        all_results = []
+        all_results = defaultdict(lambda: [None, 0])
         for query, weight in relevant_queries.items():
             results = await self.fs_bank_module.embedding_db.query_with_weights(
                 query, topk=100
@@ -59,25 +61,33 @@ class FilesystemBankLLMEngine(CustomLLMEngine):
             for content, weighted_files in results.items():
                 files, distance = weighted_files
                 for file in files:
-                    all_results.append((file, weight * distance))
+                    all_results[file["path"]][0] = file
+                    all_results[file["path"]][1] += max(
+                        all_results[file["path"]][1], distance / max(1, weight)
+                    )
 
         # Create lookup mappings for file metadata
-        results_by_chronology = sorted(all_results, key=lambda x: x[0]["path"])
+        results_by_chronology = sorted(all_results.values(), key=lambda x: x[0]["path"])
         chrono_path_indices = {
             x[0]["path"]: i for i, x in enumerate(results_by_chronology)
         }
 
-        weights_by_path = {x[0]["path"]: x[1] for x in all_results}
-        pages_by_path = {x[0]["path"]: x[0] for x in all_results}
+        weights_by_path = {x[0]["path"]: x[1] for x in all_results.values()}
+        pages_by_path = {x[0]["path"]: x[0] for x in all_results.values()}
 
         # Select files to include in gist context, up to max_gist_chars
         selected_files = []
+        selected_paths = set()
         total_gist_length = 0
-        for file, weight in all_results:
+        for file, weight in sorted(all_results.values(), key=lambda x: x[1]):
+            if file["path"] in selected_paths:
+                continue
+
             total_gist_length += file["gist_length"]
 
             if total_gist_length < self.max_gist_chars:
                 selected_files.append(file)
+                selected_paths.add(file["path"])
             else:
                 break
 
@@ -130,9 +140,13 @@ class FilesystemBankLLMEngine(CustomLLMEngine):
                 - GIST_CONTEXT: List of relevant file gists
                 - POTENTIALLY_RELEVANT_PAGES: List of relevant detailed content
         """
+        assert "TASK" in prompt_args
+
         sorted_gists, sorted_content = await self._get_relevant_gists(**prompt_args)
+        prompt_args["FS_BANK_TASK"] = prompt_args.pop("TASK")
         return {
             "GIST_CONTEXT": sorted_gists,
             "POTENTIALLY_RELEVANT_PAGES": sorted_content,
             **prompt_args,
+            "TASK": "Use the GIST_CONTEXT and POTENTIALLY_RELEVANT_PAGES to respond to the FS_BANK_TASK.",
         }

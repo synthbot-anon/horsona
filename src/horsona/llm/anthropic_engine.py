@@ -40,7 +40,7 @@ class AsyncAnthropicEngine(AsyncChatEngine):
         kwargs["model"] = self.model
 
         response = await self.client.messages.create(
-            system=system_msg,
+            system="\n\n".join(system_msg),
             **kwargs,
         )
 
@@ -73,7 +73,9 @@ class AsyncAnthropicEngine(AsyncChatEngine):
         input_tokens = 0
         output_tokens = 0
 
-        async with self.client.messages.stream(system=system_msg, **kwargs) as stream:
+        async with self.client.messages.stream(
+            system="\n\n".join(system_msg), **kwargs
+        ) as stream:
             async for chunk in stream:
                 if hasattr(chunk, "usage"):
                     if hasattr(chunk.usage, "input_tokens"):

@@ -1,5 +1,8 @@
 import asyncio
+from collections import defaultdict
 from typing import Dict
+
+from pydantic import BaseModel
 
 from horsona.autodiff.basic import HorseModule
 from horsona.autodiff.variables import Value
@@ -29,8 +32,9 @@ class FilesystemBankModule(HorseModule):
         llm: AsyncLLMEngine,
         embedding_db: EmbeddingDatabase,
         page_size: int = 1000,
-        folders: dict[str, GistModule] = None,
+        files: dict[str, GistModule] = None,
         all_paths: list[str] = None,
+        guidelines: str | None = None,
         **kwargs,
     ):
         """
@@ -40,16 +44,18 @@ class FilesystemBankModule(HorseModule):
             llm (AsyncLLMEngine): The language model engine to use
             embedding_db (EmbeddingDatabase): Database for indexing and retrieving files
             page_size (int): Maximum characters per page when splitting files
-            folders (dict[str, GistModule], optional): Pre-existing folder mapping
+            files (dict[str, GistModule], optional): Pre-existing folder mapping
             all_paths (list[str], optional): Pre-existing sorted list of file paths
+            guidelines (str | None): Optional guidelines for how files should be summarized
             **kwargs: Additional keyword arguments for parent HorseModule
         """
         super().__init__(**kwargs)
         self.llm = llm
         self.embedding_db = embedding_db
         self.page_size = page_size
-        self.folders: dict[str, GistModule] = folders or {}
+        self.files: dict[str, GistModule] = files or {}
         self.all_paths = all_paths or []
+        self.guidelines = guidelines
 
     def insert_path(self, path: str):
         """
@@ -71,10 +77,9 @@ class FilesystemBankModule(HorseModule):
 
         self.all_paths.insert(insert_idx, path)
 
-    def create_folder(
+    def create_file(
         self,
-        folder_name: str,
-        guidelines: Value[str] | None = None,
+        file_path: str,
     ) -> GistModule:
         """
         Create a new folder with its own GistModule if it doesn't exist.
@@ -86,21 +91,20 @@ class FilesystemBankModule(HorseModule):
         Returns:
             GistModule: The new or existing GistModule for this folder
         """
-        if folder_name not in self.folders:
-            self.folders[folder_name] = GistModule(
+        if file_path not in self.files:
+            self.files[file_path] = GistModule(
                 llm=self.llm,
-                guidelines=guidelines,
+                guidelines=self.guidelines,
             )
 
-        return self.folders[folder_name]
+        return self.files[file_path]
 
     async def add_file(
         self,
-        folder_name: str,
-        file_name: str,
+        filepath: str,
         content: Value[str],
         **kwargs,
-    ) -> Value[str]:
+    ) -> GistModule | None:
         """
         Add a file to a folder, create its gist, and index it for search.
         The file is split into pages if it exceeds page_size.
@@ -118,52 +122,42 @@ class FilesystemBankModule(HorseModule):
         Raises:
             ValueError: If the specified folder doesn't exist
         """
-        gist_module = self.create_folder(folder_name)
+        gist_module = self.create_file(filepath)
 
-        all_gists = []
-        # Process each page of the file separately
-        for i, page in enumerate(paginate(content.value, self.page_size)):
-            available_gists = gist_module.available_gists[:]
-            previous_pages = gist_module.available_pages[:-2]
+        stored_contents = "".join(gist_module.available_pages)
+        if "".join(stored_contents.split()) == "".join(content.value.split()):
+            return None
 
-            keywords, gist = await asyncio.gather(
-                self.llm.query_block(
-                    "text",
-                    **kwargs,
-                    CONTEXT=available_gists,
-                    PREVIOUS_PAGES=previous_pages,
-                    CURRENT_PAGE=page,
-                    TASK=(
-                        "The CONTEXT and PREVIOUS_PAGES should help you understand the CURRENT_PAGE. "
-                        "Provide a comprehensive comma-separated list of search terms someone might use to find the CURRENT_PAGE. "
-                        "These search terms will be used in the future to look up the CURRENT_PAGE by someone that doesn't have the full context. "
-                        "Ensure that the search terms are specific and relevant to the content of the page."
-                    ),
-                ),
-                gist_module.append(page, **kwargs),
-            )
+        tasks: list[asyncio.Task] = []
 
-            path = f"{folder_name}/{file_name} ({i:04d})"
+        async def exec_index_file(page: str, gist: Value[str], i: int):
+            page_path = f"{filepath} ({i:04d})"
 
             # Insert path while maintaining sorted order
-            self.insert_path(path)
+            self.insert_path(page_path)
 
             # Index the file content with its metadata
             await self.embedding_db.insert(
                 {
-                    keywords: {
-                        "content": content.value,
+                    gist.value: {
+                        "content": page,
                         "gist": gist.value,
-                        "path": path,
+                        "path": page_path,
                         "gist_length": len(await compile_user_prompt(ITEM=gist.value)),
                         "content_length": len(await compile_user_prompt(ITEM=page)),
                     }
                 }
             )
 
-            all_gists.append(gist)
+        # Process each page of the file separately
+        for i, page in enumerate(paginate(content.value, self.page_size)):
+            gist = await gist_module.append(page, **kwargs)
+            index_task = asyncio.create_task(exec_index_file(page, gist, i))
+            tasks.append(index_task)
 
-        return all_gists
+        await asyncio.gather(*tasks)
+
+        return gist_module
 
     async def get_file(self, folder_name: str, file_name: str) -> dict:
         """

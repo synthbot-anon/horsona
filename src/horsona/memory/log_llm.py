@@ -14,21 +14,22 @@ S = TypeVar("S", bound=Union[str, T])
 class LogLLMEngine(ReadAgentLLMEngine):
     def __init__(
         self,
-        underlying_llm: AsyncLLMEngine,
+        llm: AsyncLLMEngine,
         conversation_module: LogModule,
         max_pages: int = 3,
         **kwargs,
     ):
+        self.llm = llm
         self.conversation_module = conversation_module
 
         # LLM with recent messages context
         self.recent_messages_llm = HistoryLLMEngine(
-            underlying_llm, conversation_module.recent_messages_module
+            llm, conversation_module.recent_messages_module
         )
 
         # LLM with overview context
         self.overview_llm = ReadAgentLLMEngine(
-            underlying_llm,
+            llm,
             conversation_module.overview_module,
             max_pages=max_pages,
         )

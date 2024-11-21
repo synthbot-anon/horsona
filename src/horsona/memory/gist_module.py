@@ -1,6 +1,7 @@
 from horsona.autodiff.basic import HorseModule
 from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
+from horsona.llm.engine_utils import compile_user_prompt
 
 
 class GistModule(HorseModule):
@@ -19,8 +20,11 @@ class GistModule(HorseModule):
         self,
         llm: AsyncLLMEngine,
         guidelines: Value[str] | None = None,
+        max_gist_chars: int = 2048,
+        max_page_chars: int = 2048,
         available_gists: list[Value[str]] = None,
         available_pages: list[Value[str]] = None,
+        page_lengths: list[int] = None,
         **kwargs,
     ):
         """
@@ -42,6 +46,9 @@ class GistModule(HorseModule):
 
         self.available_gists = available_gists if available_gists is not None else []
         self.available_pages = available_pages if available_pages is not None else []
+        self.page_lengths = page_lengths if page_lengths is not None else []
+        self.max_gist_chars = max_gist_chars
+        self.max_page_chars = max_page_chars
 
     async def append(self, page: Value[str], **kwargs) -> Value[str]:
         """
@@ -54,17 +61,42 @@ class GistModule(HorseModule):
         Returns:
             Value[str]: Gist of the provided page
         """
+
+        page_context = []
+        i = len(self.available_pages) - 1
+        while i > 0:
+            if len(await compile_user_prompt(ITEMS=page_context)) > self.max_page_chars:
+                if page_context:
+                    page_context.pop()
+                break
+            page_context.append(self.available_pages[i])
+            i -= 1
+
+        page_context.reverse()
+
+        gist_context = []
+        for j in range(i, 0, -1):
+            if len(await compile_user_prompt(ITEMS=gist_context)) > self.max_gist_chars:
+                if gist_context:
+                    gist_context.pop()
+                break
+            gist_context.append(self.available_gists[j])
+
+        gist_context.reverse()
+
         page_summary = await self.llm.query_block(
             "text",
             CONTEXT=kwargs,
-            PREVIOUS_PAGE=self.available_gists[-1] if self.available_gists else None,
+            PREVIOUS_GISTS=gist_context,
+            PREVIOUS_PAGES=page_context,
             GUIDELINES=self.guidelines,
             CURRENT_PAGE=page,
-            TASK="Please shorten the provided CURRENT_PAGE. Follow the GUIDELINES.",
+            TASK="Please shorten the provided CURRENT_PAGE to one short paragraph. Follow the GUIDELINES.",
         )
 
         self.available_gists.append(page_summary)
         self.available_pages.append(page)
+        self.page_lengths.append(len(await compile_user_prompt(ITEM=page)))
 
         return Value("Summary", page_summary, predecessors=[page])
 

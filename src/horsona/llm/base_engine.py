@@ -9,6 +9,7 @@ from typing import AsyncGenerator, Optional, Type, TypeVar, Union
 from pydantic import BaseModel
 
 from horsona.autodiff.basic import HorseData
+from horsona.config.json_with_comments import load_json_with_comments
 
 __all__ = ["AsyncLLMEngine", "LLM_CONFIG_PATH"]
 
@@ -30,6 +31,7 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
     from horsona.llm.anthropic_engine import AsyncAnthropicEngine
     from horsona.llm.cerebras_engine import AsyncCerebrasEngine
     from horsona.llm.fireworks_engine import AsyncFireworksEngine
+    from horsona.llm.grok_engine import AsyncGrokEngine
     from horsona.llm.groq_engine import AsyncGroqEngine
     from horsona.llm.multi_engine import create_multi_engine
     from horsona.llm.openai_engine import AsyncOpenAIEngine
@@ -37,7 +39,7 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
     from horsona.llm.together_engine import AsyncTogetherEngine
 
     with open(LLM_CONFIG_PATH, "r") as f:
-        config = json.load(f)
+        config = load_json_with_comments(f)
 
     engines.clear()
 
@@ -73,6 +75,10 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
                 engines[name] = AsyncTogetherEngine(
                     model=model, rate_limits=rate_limits, name=name
                 )
+            elif engine_type == "AsyncGrokEngine":
+                engines[name] = AsyncGrokEngine(
+                    model=model, rate_limits=rate_limits, name=name
+                )
             elif engine_type == "AsyncPerplexityEngine":
                 engines[name] = AsyncPerplexityEngine(
                     model=model, rate_limits=rate_limits, name=name
@@ -82,6 +88,9 @@ def load_engines() -> dict[str, "AsyncLLMEngine"]:
                     engines[engine_name] for engine_name in params["engines"]
                 ]
                 engines[name] = create_multi_engine(*sub_engines, name=name)
+            elif engine_type == "ReferenceEngine":
+                sub_engine = params["reference"]
+                engines[name] = engines[sub_engine]
             else:
                 raise ValueError(f"Unknown engine type: {engine_type}")
 
@@ -248,7 +257,6 @@ class AsyncLLMEngine(HorseData, ABC):
         """
         super().__init__()
         self.rate_limit = RateLimits(rate_limits)
-        self.kwargs = kwargs
         self.name = name
 
     def __new__(cls, *args, **kwargs) -> "AsyncLLMEngine":
@@ -264,9 +272,7 @@ class AsyncLLMEngine(HorseData, ABC):
             await self.rate_limit.consume_call()
             new_metrics = LLMMetrics()
 
-            content = await original_query(
-                *args, metrics=new_metrics, **{**self.kwargs, **kwargs}
-            )
+            content = await original_query(*args, metrics=new_metrics, **kwargs)
 
             self.rate_limit.report_tokens_consumed(new_metrics.tokens_consumed)
             if metrics is not None:
@@ -282,7 +288,7 @@ class AsyncLLMEngine(HorseData, ABC):
             new_metrics = LLMMetrics()
 
             async for chunk in original_query_stream(
-                *args, metrics=new_metrics, **{**self.kwargs, **kwargs}
+                *args, metrics=new_metrics, **kwargs
             ):
                 new_consumed = new_metrics.tokens_consumed - new_metrics.tokens_consumed
                 self.rate_limit.report_tokens_consumed(new_consumed)

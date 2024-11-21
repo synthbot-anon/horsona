@@ -93,22 +93,25 @@ async def _get_streaming_response(engine: AsyncChatEngine, request_dict: dict):
 
 
 async def _get_nonstreaming_response(engine: AsyncChatEngine, request_dict: dict):
-    response = await engine.query(**request_dict)
+    try:
+        response = await engine.query(**request_dict)
 
-    return ChatCompletionResponse(
-        model=request_dict["model"],
-        choices=[
-            ChatCompletionChoice(
-                index=0,
-                message=ChatCompletionMessage(
-                    role="assistant",
-                    content=response,
-                ),
-                finish_reason="stop",
-            )
-        ],
-        usage=ChatCompletionUsage(),
-    )
+        return ChatCompletionResponse(
+            model=request_dict["model"],
+            choices=[
+                ChatCompletionChoice(
+                    index=0,
+                    message=ChatCompletionMessage(
+                        role="assistant",
+                        content=response,
+                    ),
+                    finish_reason="stop",
+                )
+            ],
+            usage=ChatCompletionUsage(),
+        )
+    except Exception as e:
+        raise e
 
 
 @router.post("/v1/chat/completions")
@@ -133,8 +136,8 @@ async def create_chat_completion(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def add_llm_engine(engine: AsyncChatEngine):
-    llm_engines[engine.name] = engine
+def add_llm_engine(engine: AsyncChatEngine, name: str | None = None):
+    llm_engines[name or engine.name] = engine
 
 
 class ModelObject(BaseModel):

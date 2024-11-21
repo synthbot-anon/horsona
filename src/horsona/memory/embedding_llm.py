@@ -7,13 +7,14 @@ from horsona.autodiff.variables import Value
 from horsona.database.embedding_database import EmbeddingDatabase
 from horsona.llm.base_engine import AsyncLLMEngine, LLMMetrics
 from horsona.llm.chat_engine import AsyncChatEngine
-from horsona.llm.custom_llm import CustomLLMEngine
+from horsona.llm.engine_utils import compile_user_prompt
+from horsona.llm.wrapper_llm import WrapperLLMEngine
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
 
 
-class EmbeddingLLMEngine(CustomLLMEngine):
+class EmbeddingLLMEngine(WrapperLLMEngine):
     def __init__(
         self,
         underlying_llm: AsyncLLMEngine,
@@ -57,22 +58,21 @@ async def get_relevant_queries(llm: AsyncLLMEngine, **kwargs) -> dict[str, int]:
     class Search(BaseModel):
         queries: dict[str, int]
 
-    if "TASK" in kwargs:
-        kwargs["__USER_TASK"] = kwargs.pop("TASK")
-        prompt_key = "__USER_TASK"
-    elif kwargs:
-        prompt_key = list(kwargs.keys())[-1]
-    else:
-        prompt_key = "request"
+    assert "TASK" in kwargs
+    kwargs["EMBEDDING_TASK"] = kwargs.pop("TASK")
 
     search = await llm.query_object(
         Search,
         **kwargs,
+        IGNORE_KEYS=list(kwargs.keys()),
         TASK=(
-            f"You are trying to understand the given {prompt_key}. "
-            "You have access to a search engine that can retrieve relevant information. "
-            f"Suggest keyword search queries that would provide better context for understanding the {prompt_key}. "
-            "For each query, also specify a weight between 0 and 10 that indicates its importance."
+            f"Use the available information to understand the given EMBEDDING_TASK. "
+            f"I am trying to understand the given EMBEDDING_TASK. "
+            f"Suggest search queries that would provide better context for understanding the EMBEDDING_TASK. "
+            "For each query, also specify a weight between 0 and 10 that indicates its importance. "
+            "I will enter them verbatim into the search engine, so make sure they are exact phrases and self-contained. "
+            "The search engine understands complex queries, so use complete sentences where appropriate. "
+            "Your queries should not use any of the words in IGNORE_KEYS."
         ),
     )
 

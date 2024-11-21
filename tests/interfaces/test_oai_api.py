@@ -9,13 +9,13 @@ from openai import AsyncOpenAI
 from horsona.interface import oai
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 async def oai_server(reasoning_llm):
     app = FastAPI()
     app.include_router(oai.api_router)
-    oai.add_llm_engine(reasoning_llm)
+    oai.add_llm_engine(reasoning_llm, name="reasoning_llm")
 
-    config = uvicorn.Config(app, host="127.0.0.1", port=8001)
+    config = uvicorn.Config(app, host="127.0.0.1", port=8002)
     server = uvicorn.Server(config)
 
     # Temporarily suppress logging
@@ -51,7 +51,7 @@ async def oai_server(reasoning_llm):
 async def test_chat_completion(oai_server):
     # Initialize client pointing to local server
     oai_client = AsyncOpenAI(
-        base_url="http://127.0.0.1:8001/api/v1",
+        base_url="http://127.0.0.1:8002/api/v1",
         api_key="not-needed",  # API key not needed for local server
     )
 
@@ -78,7 +78,7 @@ async def test_chat_completion(oai_server):
 async def test_chat_completion_stream(oai_server):
     # Initialize client pointing to local server
     oai_client = AsyncOpenAI(
-        base_url="http://127.0.0.1:8001/api/v1",
+        base_url="http://127.0.0.1:8002/api/v1",
         api_key="not-needed",  # API key not needed for local server
     )
 

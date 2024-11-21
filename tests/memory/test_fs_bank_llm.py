@@ -1,4 +1,4 @@
-STORY_TEXT = """
+STORY_PART_1 = """
 Ashley did not discover Equestria Online the way many others of her generation did.
 
 Ashley could only barely hide her nervousness as she shut her professor's door behind her. As a research assistant, getting called in for a personal meeting was never a good thing. Either she had a new assignment, or she had done something stupid and was about to hear about it. Ashley had worked in her university's Machine Learning lab since her second year as an undergraduate, rising through the ranks until she had come to head whole projects.
@@ -20,7 +20,9 @@ Professor Caul let her skim the paper in silence. There was a particular pattern
 “She really expects anyone to believe this? An unbounded bootstrap optimizer? That's singularity-level crap right there.”
 
 “That's what it says.” Professor Caul grinned.
+"""
 
+STORY_PART_2 = """
 “That's nonsense.” She shook her head. “Hofvarpnir Studios, I know they're legit and everything, but– this Hanna was full of crap. I don't have to read this paper to tell you that, professor. This isn't possible. It doesn't matter how this says she did it.”
 
 Her professor's smile widened. “I'm glad to see your other teachers haven't been neglecting your education, Ashley. When you get time to read the whole paper, I'm sure you'll only feel more confident in that conclusion. Unfortunately for you, they are apparently using this research in a public-facing product and have been for months.” He gestured at the package. “Congratulations, Ashley, you're now a verifier. Ever heard of Equestria Online?”
@@ -89,7 +91,10 @@ async def fsbank_llm(reasoning_llm, query_index):
         embedding_db = EmbeddingDatabase(reasoning_llm, query_index)
         fsbank_module = FilesystemBankModule(reasoning_llm, embedding_db)
         await fsbank_module.add_file(
-            "/story", "chapter_1.txt", Value("story text", STORY_TEXT)
+            "/story/chapter_1.txt", Value("story text", STORY_PART_1)
+        )
+        await fsbank_module.add_file(
+            "/story/chapter_2.txt", Value("story text", STORY_PART_2)
         )
         _fsbank_llm = FilesystemBankLLMEngine(reasoning_llm, fsbank_module)
 
@@ -97,17 +102,23 @@ async def fsbank_llm(reasoning_llm, query_index):
 
 
 @pytest.mark.asyncio
+async def test_data_loaded(fsbank_llm: FilesystemBankLLMEngine):
+    assert len(fsbank_llm.fs_bank_module.files) == 2
+
+
+@pytest.mark.asyncio
 async def test_query_block(fsbank_llm):
-    response = await fsbank_llm.query_block(
+    game_task_response = await fsbank_llm.query_block(
         "text",
-        PROMPT="What is Ashley supposed to do with the game?",
+        TASK="What is Ashley supposed to do with the game?",
     )
 
     assert (
-        "figure out" in response.lower()
-        or "determine" in response.lower()
-        or "test" in response.lower()
-        or "verify" in response.lower()
+        "figure out" in game_task_response.lower()
+        or "determine" in game_task_response.lower()
+        or "test" in game_task_response.lower()
+        or "verify" in game_task_response.lower()
+        or "play" in game_task_response.lower()
     )
 
 
@@ -118,7 +129,7 @@ async def test_query_object(fsbank_llm):
 
     response = await fsbank_llm.query_object(
         Response,
-        PROMPT="Who wrote the paper that Ashley received from her professor?",
+        TASK="Who wrote the paper that Ashley received from her professor?",
     )
 
     assert isinstance(response, Response)
@@ -133,3 +144,5 @@ async def test_load_fsbank_llm(reasoning_llm, fsbank_llm):
     assert isinstance(restored, FilesystemBankLLMEngine)
     assert isinstance(restored.underlying_llm, type(reasoning_llm))
     assert isinstance(restored.fs_bank_module, FilesystemBankModule)
+
+    assert len(restored.fs_bank_module.files) == len(fsbank_llm.fs_bank_module.files)
