@@ -46,6 +46,7 @@ poetry run pytest -n 4
 2. Edit `llm_config.json` to use your new LLM(s). Supported "types" include:
    - AsyncCerebrasEngine
    - AsyncGroqEngine
+   - AsyncGrokEngine
    - AsyncFireworksEngine
    - AsyncOpenAIEngine
    - AsyncAnthropicEngine
@@ -182,7 +183,7 @@ This target feature list is incomplete:
 + [Done] Streaming outputs
 + [Done] Integration with game engines
 ! [Missing tests] Actions (function call) outputs
-- Organize retrieval data by folders and tags
++ [Done] Organize retrieval data by folders and tags
 ```
 
 If you think of other features you want in a general-purpose chatbot library, let me know in the thread.
