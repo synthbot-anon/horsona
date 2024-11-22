@@ -1,15 +1,11 @@
+import json
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Type, TypeVar, Union
+from typing import Any, AsyncGenerator, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
 from .base_engine import AsyncLLMEngine
-from .engine_utils import (
-    compile_user_prompt,
-    generate_obj_query_messages,
-    parse_block_response,
-    parse_obj_response,
-)
+from .engine_utils import compile_user_prompt, parse_block_response, parse_obj_response
 
 __all__ = ["AsyncChatEngine"]
 
@@ -18,8 +14,9 @@ S = TypeVar("S", bound=Union[str, T])
 
 
 class AsyncChatEngine(AsyncLLMEngine, ABC):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, conversational=False, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.conversational = conversational
 
     @abstractmethod
     async def query(self, **kwargs) -> AsyncGenerator[str, None]:
@@ -41,10 +38,9 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
-        if prompt_args:
-            api_args.setdefault("messages", []).extend(
-                {"role": "user", "content": await compile_user_prompt(**prompt_args)}
-            )
+        await self._update_messages_with_prompt_args(
+            api_args.setdefault("messages", []), prompt_args
+        )
 
         if "stream" in api_args:
             assert api_args["stream"] == False
@@ -61,10 +57,9 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
-        if prompt_args:
-            api_args.setdefault("messages", []).extend(
-                {"role": "user", "content": await compile_user_prompt(**prompt_args)}
-            )
+        await self._update_messages_with_prompt_args(
+            api_args.setdefault("messages", []), prompt_args
+        )
 
         if "stream" in api_args:
             assert api_args["stream"] == True
@@ -78,15 +73,14 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
-        prior_messages = kwargs.get("messages", [])
-
-        response = await self.query_response(
-            messages=[
-                *prior_messages,
-                *await generate_obj_query_messages(response_model, prompt_args),
-            ],
-            **api_args,
+        await self._update_messages_with_prompt_args(
+            api_args.setdefault("messages", []), prompt_args
         )
+        api_args.setdefault("messages", []).extend(
+            await _generate_obj_query_messages(response_model)
+        )
+
+        response = await self.query_response(**api_args)
 
         return parse_obj_response(response_model, response)
 
@@ -94,15 +88,14 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
-        prior_messages = kwargs.get("messages", [])
-
-        response = await self.query_response(
-            messages=[
-                *prior_messages,
-                *await _generate_block_query_messages(block_type, prompt_args),
-            ],
-            **api_args,
+        await self._update_messages_with_prompt_args(
+            api_args.setdefault("messages", []), prompt_args
         )
+        api_args.setdefault("messages", []).extend(
+            await _generate_block_query_messages(block_type, prompt_args)
+        )
+
+        response = await self.query_response(**api_args)
 
         return parse_block_response(block_type, response)
 
@@ -110,24 +103,35 @@ class AsyncChatEngine(AsyncLLMEngine, ABC):
         prompt_args = {k: v for k, v in kwargs.items() if k == k.upper()}
         api_args = {k: v for k, v in kwargs.items() if k != k.upper()}
 
-        prior_messages = kwargs.get("messages", [])
-
-        prompt_references = await compile_user_prompt(**prompt_args)
-
-        response = await self.query_response(
-            messages=[
-                *prior_messages,
-                {"role": "user", "content": prompt_references},
+        await self._update_messages_with_prompt_args(
+            api_args.setdefault("messages", []), prompt_args
+        )
+        api_args.setdefault("messages", []).extend(
+            [
                 {"role": "assistant", "content": prompt},
                 {
                     "role": "user",
                     "content": "Please continue. Just the continuation, nothing else.",
                 },
-            ],
-            **api_args,
+            ]
         )
 
-        return response
+        return await self.query_response(**api_args)
+
+    async def _update_messages_with_prompt_args(
+        self, messages: list[dict[str, str]], prompt_args: dict[str, Any]
+    ) -> None:
+        if not prompt_args:
+            return
+
+        if self.conversational:
+            messages.insert(
+                0, {"role": "user", "content": await compile_user_prompt(**prompt_args)}
+            )
+        else:
+            messages.append(
+                {"role": "user", "content": await compile_user_prompt(**prompt_args)}
+            )
 
 
 async def _generate_block_query_messages(block_type: str, prompt_args):
@@ -154,4 +158,38 @@ async def _generate_block_query_messages(block_type: str, prompt_args):
     return [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": prompt},
+    ]
+
+
+async def _generate_obj_query_messages(
+    response_model: Type[BaseModel],
+) -> list[dict[str, Any]]:
+    """
+    Generate messages for an object query.
+
+    This function creates a system message and a user message for querying
+    an LLM to generate a response matching a specific model.
+
+    Args:
+        response_model (BaseModel): The expected response model.
+
+    Returns:
+        list: A list of message dictionaries for the LLM query.
+    """
+    user_prompt = (
+        "Return the correct JSON response within a ```json codeblock, not the "
+        "JSON_SCHEMA. Use only fields specified by the JSON_SCHEMA and nothing else."
+    )
+
+    schema = response_model.model_json_schema()
+    system_prompt = (
+        "Your task is to understand the content and provide "
+        "the parsed objects in json that matches the following json_schema:\n\n"
+        f"{json.dumps(schema, indent=2)}\n\n"
+        "Make sure to return an instance of the JSON, not the schema itself."
+    )
+
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
     ]

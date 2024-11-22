@@ -1,6 +1,6 @@
 import json
 import os
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 import httpx
 
@@ -42,6 +42,8 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         self, *, metrics: LLMMetrics, **kwargs
     ) -> AsyncGenerator[str, None]:
         url = "https://api.perplexity.ai/chat/completions"
+        kwargs["messages"] = _clean_messages(kwargs.get("messages", []))
+        print(kwargs["messages"])
 
         payload = {
             "model": self.model,
@@ -67,3 +69,32 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         metrics.tokens_consumed = total_tokens
 
         yield content
+
+
+def _clean_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    new_messages = []
+
+    # System messages all come first
+    system_messages = [m for m in messages if m["role"] == "system"]
+    if system_messages:
+        new_messages.append(
+            {
+                "role": "system",
+                "content": "\n\n".join([m["content"] for m in system_messages]),
+            }
+        )
+
+    # User and assistant messages must alternate
+
+    previous_role = None
+    for m in messages:
+        if m["role"] not in ["user", "assistant"]:
+            continue
+
+        if m["role"] == previous_role:
+            new_messages[-1]["content"] += "\n\n" + m["content"]
+        else:
+            new_messages.append(m)
+        previous_role = m["role"]
+
+    return new_messages

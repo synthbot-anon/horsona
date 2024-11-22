@@ -107,56 +107,6 @@ async def compile_user_prompt(**kwargs) -> str:
     return "\n\n".join(prompt_pieces)
 
 
-def _compile_obj_system_prompt(response_model: Type[BaseModel]) -> str:
-    """
-    Compile a system prompt for a given response model.
-
-    This function creates a prompt instructing the model to return
-    a JSON object matching the schema of the provided response model.
-
-    Args:
-        response_model (BaseModel): The Pydantic model to use for the response schema.
-
-    Returns:
-        str: The compiled system prompt.
-    """
-    schema = response_model.model_json_schema()
-    return (
-        "Your task is to understand the content and provide "
-        "the parsed objects in json that matches the following json_schema:\n\n"
-        f"{json.dumps(schema, indent=2)}\n\n"
-        "Make sure to return an instance of the JSON, not the schema itself."
-    )
-
-
-async def generate_obj_query_messages(
-    response_model: Type[BaseModel], prompt_args: dict
-) -> list[dict[str, Any]]:
-    """
-    Generate messages for an object query.
-
-    This function creates a system message and a user message for querying
-    an LLM to generate a response matching a specific model.
-
-    Args:
-        response_model (BaseModel): The expected response model.
-        prompt_args: Arguments to include in the user prompt.
-
-    Returns:
-        list: A list of message dictionaries for the LLM query.
-    """
-    user_prompt = await compile_user_prompt(**prompt_args) + (
-        "\n\nReturn the correct JSON response within a ```json codeblock, not the "
-        "JSON_SCHEMA. Use only fields specified by the JSON_SCHEMA and nothing else."
-    )
-    system_prompt = _compile_obj_system_prompt(response_model)
-
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
-
-
 def parse_obj_response(response_model: Type[BaseModel], content: str) -> BaseModel:
     """
     Parse an object response from the LLM.

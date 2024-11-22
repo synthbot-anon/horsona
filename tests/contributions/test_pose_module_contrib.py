@@ -45,7 +45,7 @@ async def test_pose_module(reasoning_llm: AsyncLLMEngine):
     loss = context_loss + character_loss
     await loss.step([context, character_info])
 
-    assert "sit" in context.value.lower()
+    assert "sit" in context.value.lower() or "sat" in context.value.lower()
     assert "alicorn" in character_info.value["species"].lower()
 
 

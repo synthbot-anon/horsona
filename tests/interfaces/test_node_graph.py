@@ -356,7 +356,9 @@ async def test_backpropagation(client):
         f"/api/sessions/{session_id}/resources/{apply_loss.__module__}/{apply_loss.__name__}",
         json={
             "arg": extract_name_obj.result.model_dump(),
-            "loss": StrArgument(value="The name should be Celestia").model_dump(),
+            "loss": StrArgument(
+                value="The name should have been Celestia"
+            ).model_dump(),
         },
     )
     assert loss1_response.status_code == status.HTTP_200_OK
@@ -368,7 +370,7 @@ async def test_backpropagation(client):
         json={
             "arg": extract_name_obj.result.model_dump(),
             "loss": StrArgument(
-                value="They should be addressed as Princess",
+                value="They should have been addressed as Princess [...]",
             ).model_dump(),
         },
     )
