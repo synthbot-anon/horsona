@@ -1,5 +1,5 @@
 from cerebras.cloud.sdk import AsyncCerebras, AsyncStream
-from cerebras.cloud.sdk.resources.chat.completions import CompletionCreateResponse
+from cerebras.cloud.sdk.types.chat.chat_completion import CompletionCreateResponse
 
 from .oai_engine import AsyncOAIEngine
 
