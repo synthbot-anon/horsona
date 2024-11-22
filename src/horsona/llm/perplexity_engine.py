@@ -1,9 +1,10 @@
 import json
 import os
+from typing import AsyncGenerator
 
 import httpx
 
-from horsona.llm.base_engine import LLMMetrics
+from horsona.llm.base_engine import LLMMetrics, tracks_metrics
 
 from .chat_engine import AsyncChatEngine
 from .engine_utils import clean_json_string
@@ -36,7 +37,10 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         self.model = model
         self.apikey = os.environ["PERPLEXITY_API_KEY"]
 
-    async def query(self, metrics: LLMMetrics = None, **kwargs) -> str:
+    @tracks_metrics
+    async def query(
+        self, *, metrics: LLMMetrics, **kwargs
+    ) -> AsyncGenerator[str, None]:
         url = "https://api.perplexity.ai/chat/completions"
 
         payload = {
@@ -62,4 +66,4 @@ class AsyncPerplexityEngine(AsyncChatEngine):
 
         metrics.tokens_consumed = total_tokens
 
-        return content
+        yield content

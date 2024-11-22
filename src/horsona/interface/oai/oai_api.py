@@ -6,16 +6,7 @@ from pydantic import BaseModel
 
 from horsona.llm.chat_engine import AsyncChatEngine
 
-from .oai_models import (
-    ChatCompletionChoice,
-    ChatCompletionChunkChoice,
-    ChatCompletionChunkResponse,
-    ChatCompletionMessage,
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    ChatCompletionUsage,
-    DeltaMessage,
-)
+from .oai_models import *
 
 llm_engines: dict[str, AsyncChatEngine] = {}
 router = APIRouter(prefix="/api")
@@ -94,7 +85,7 @@ async def _get_streaming_response(engine: AsyncChatEngine, request_dict: dict):
 
 async def _get_nonstreaming_response(engine: AsyncChatEngine, request_dict: dict):
     try:
-        response = await engine.query(**request_dict)
+        response = await engine.query_response(**request_dict)
 
         return ChatCompletionResponse(
             model=request_dict["model"],

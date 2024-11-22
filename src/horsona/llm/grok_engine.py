@@ -1,5 +1,4 @@
 import os
-from typing import AsyncGenerator
 
 from openai import AsyncOpenAI, AsyncStream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk

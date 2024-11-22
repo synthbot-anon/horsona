@@ -15,7 +15,7 @@ class WrapperLLMEngine(AsyncLLMEngine):
         super().__init__(*args, **kwargs)
         self.underlying_llm = underlying_llm
 
-    async def query(self, metrics: LLMMetrics = None, **kwargs) -> str:
+    async def query_response(self, metrics: LLMMetrics = None, **kwargs) -> str:
         if "TASK" not in kwargs:
             kwargs["TASK"] = (
                 "Respond as the assistant based on the most recent user message above."
@@ -25,7 +25,7 @@ class WrapperLLMEngine(AsyncLLMEngine):
 
         prompt_args = {k: v for k, v in args.items() if k == k.upper()}
 
-        result = await self.underlying_llm.query(metrics=metrics, **args)
+        result = await self.underlying_llm.query_response(metrics=metrics, **args)
         await self.capture_response(
             translate_to_prompt_args(args),
             result,

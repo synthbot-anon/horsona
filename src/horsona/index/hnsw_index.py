@@ -133,10 +133,13 @@ class HnswEmbeddingIndex(EmbeddingIndex):
         if topk == 0:
             return {}
 
+        if len(self.index_to_value) == 0:
+            return {}
+
         if topk > len(self.index_to_value):
             topk = len(self.index_to_value)
 
-        ef = min(topk * 10, self.ef_construction)
+        ef = max(min(topk * 10, self.ef_construction), len(self.index_to_value))
         self.embeddings.set_ef(ef)
 
         query_emb = await self.model.get_query_embeddings([query])
