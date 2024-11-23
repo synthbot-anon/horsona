@@ -71,25 +71,22 @@ async def get_relevant_pages(
         if page is None:
             continue
 
-        try:
-            cleaned_pages.append(int(page))
-            continue
-        except ValueError:
-            pass
-
-        if "." in str(page):
-            for piece in str(page).split(".")[::-1]:
-                try:
-                    cleaned_pages.append(int(piece))
-                    break
-                except ValueError:
-                    continue
-
-    target_pages = []
-    for i in reversed(sorted(cleaned_pages)):
-        if i > 0 and i < len(pages):
-            target_pages.append(i)
-        if len(target_pages) == max_results:
+        if len(cleaned_pages) >= max_results:
             break
 
-    return [pages[i] for i in target_pages]
+        page_index = None
+        try:
+            page_index = int(page)
+        except ValueError:
+            if "." in str(page):
+                for piece in str(page).split(".")[::-1]:
+                    try:
+                        page_index = int(piece)
+                        break
+                    except ValueError:
+                        continue
+
+        if page_index is not None and page_index > 0 and page_index < len(pages):
+            cleaned_pages.append(page_index)
+
+    return [pages[i] for i in cleaned_pages]
