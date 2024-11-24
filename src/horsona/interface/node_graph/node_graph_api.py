@@ -193,6 +193,9 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     4. Adds the route to the FastAPI app
     """
     # Get original method specifications
+    while hasattr(method_obj, "__wrapped__"):
+        method_obj = method_obj.__wrapped__
+
     orig_spec = inspect.getfullargspec(method_obj)
     orig_params = orig_spec.args
     orig_annotations = method_obj.__annotations__
