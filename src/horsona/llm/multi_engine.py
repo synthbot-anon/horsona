@@ -2,7 +2,7 @@ import asyncio
 import inspect
 import sys
 from random import random
-from typing import Generic, Type, TypeVar
+from typing import Any, Generic, Type, TypeVar
 
 from horsona.autodiff.basic import HorseData
 from horsona.llm.base_engine import AsyncLLMEngine, engines, load_engines
@@ -10,19 +10,19 @@ from horsona.llm.base_engine import AsyncLLMEngine, engines, load_engines
 T = TypeVar("T", bound=AsyncLLMEngine)
 
 
-def get_mro_hierarchy(cls):
+def get_mro_hierarchy(cls: Type) -> tuple[Type, ...]:
     """Returns the Method Resolution Order (MRO) for a class"""
     return cls.__mro__
 
 
-def get_type(obj):
+def get_type(obj: Any) -> Type:
     if hasattr(obj, "get_type"):
         return obj.get_type()
     else:
         return type(obj)
 
 
-def find_greatest_common_ancestor(objects):
+def find_greatest_common_ancestor(objects: list[Any]) -> Type:
     """
     Find the most specific common ancestor class for a list of objects.
 

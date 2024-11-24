@@ -3,7 +3,7 @@ import functools
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, AsyncGenerator, Optional, Type, TypeVar, Union
+from typing import Any, AsyncGenerator, Callable, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
 
@@ -185,7 +185,9 @@ class LLMMetrics:
     tokens_consumed: int = 0
 
 
-def tracks_metrics(fn):
+def tracks_metrics(
+    fn: Callable[..., AsyncGenerator[str, None]],
+) -> Callable[..., AsyncGenerator[str, None]]:
     """
     Decorator that tracks token consumption metrics for LLM API calls.
     Updates both the rate limiter and optional metrics object.

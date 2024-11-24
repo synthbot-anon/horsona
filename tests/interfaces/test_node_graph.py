@@ -289,6 +289,17 @@ async def test_list_resources(client):
     assert list_resources_obj.resources[0] == create_value_obj
 
 
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_openapi(client):
+    node_graph.configure()
+
+    openapi_response: Response = client.get("/api/openapi.json")
+    assert openapi_response.status_code == status.HTTP_200_OK
+
+    assert len(node_graph.skipped_functions) == 0
+
+
 async def extract_pony_name(llm: AsyncLLMEngine, text: Value[str]):
     from pydantic import BaseModel
 

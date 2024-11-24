@@ -57,7 +57,7 @@ class WikiModule(HorseModule):
         self.all_paths = all_paths or []
         self.guidelines = guidelines
 
-    def insert_path(self, path: str):
+    def insert_path(self, path: str) -> None:
         """
         Insert a new path into the sorted all_paths list.
         Maintains lexicographical ordering and prevents duplicates.
