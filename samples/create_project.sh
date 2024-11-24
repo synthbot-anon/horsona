@@ -22,6 +22,8 @@ GIT_EMAIL=$(git config user.email)
 # Update pyproject.toml with new project name and author
 sed -i "s/name = \"boilerplate\"/name = \"$PROJECT_NAME\"/" pyproject.toml
 sed -i "s/\"Synthbot Anon <synthbot.anon@gmail.com>\"/\"$GIT_NAME <$GIT_EMAIL>\"/" pyproject.toml
+sed -i "s/boilerplate/$PROJECT_NAME/" README.md
+sed -i "s/Boilerplate/$PROJECT_NAME/" README.md
 
 # Rename src directory
 mv src/boilerplate "src/$PROJECT_NAME"
