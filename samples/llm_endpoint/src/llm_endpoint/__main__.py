@@ -1,29 +1,22 @@
 import asyncio
-import json
 import os
-import traceback
-import zipfile
-from io import BytesIO
-from typing import Dict, Union
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, Response, logger
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI
 
 from horsona.autodiff.basic import unzip, zip
 from horsona.autodiff.variables import Value
+from horsona.config import load_indices, load_llms
 from horsona.database.embedding_database import EmbeddingDatabase
-from horsona.index import load_indices
 from horsona.interface import oai
-from horsona.llm import load_engines
 from horsona.memory.wiki_module import WikiModule
 
 from .backstory_llm import BackstoryLLMEngine
 
 load_dotenv()
 
-engines = load_engines()
+llms = load_llms()
 indices = load_indices()
 
 
@@ -35,7 +28,7 @@ async def load_backstory_llm() -> BackstoryLLMEngine:
         )
         backstory_module = backstory_llm.backstory_module
     else:
-        reasoning_llm = engines["reasoning_llm"]
+        reasoning_llm = llms["reasoning_llm"]
         query_index = indices["query_index"]
         embedding_db = EmbeddingDatabase(reasoning_llm, query_index)
 
@@ -85,7 +78,7 @@ async def main():
     app.include_router(oai.api_router)
     backstory_llm = await load_backstory_llm()
 
-    oai.add_llm_engine(backstory_llm, name="backstory-llm")
+    oai.add_llm_engine(backstory_llm, name="sample-endpoint")
 
     config = uvicorn.Config(app, host="0.0.0.0", port=8001, log_level="info")
     server = uvicorn.Server(config)
