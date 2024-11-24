@@ -2,19 +2,18 @@ import asyncio
 
 from dotenv import load_dotenv
 
-from horsona.index import load_indices
-from horsona.llm import load_engines
+from horsona.config import load_indices, load_llms
 
 from .async_input import async_input
 
 load_dotenv()
 
-engines = load_engines()
+llms = load_llms()
 indices = load_indices()
 
 
 async def main():
-    reasoning_llm = engines["reasoning_llm"]
+    reasoning_llm = llms["reasoning_llm"]
 
     while True:
         user_input = await async_input("Input: ")
