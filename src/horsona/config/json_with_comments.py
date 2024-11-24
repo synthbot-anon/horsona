@@ -2,7 +2,7 @@ import json
 from typing import TextIO
 
 
-def _load_json_from_string(data: str):
+def _load_json_from_string(data: str) -> dict:
     lines = data.split("\n")
     updated_lines = []
     for line in lines:
@@ -28,7 +28,7 @@ def _load_json_from_string(data: str):
     return json.loads("\n".join(updated_lines))
 
 
-def load_json_with_comments(data: str | TextIO):
+def load_json_with_comments(data: str | TextIO) -> dict:
     if isinstance(data, str):
         data_str = data
     else:

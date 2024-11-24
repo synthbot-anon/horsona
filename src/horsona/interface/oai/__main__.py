@@ -5,11 +5,11 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
+from horsona.config import load_llms
 from horsona.interface import oai
-from horsona.llm import load_engines
 
 load_dotenv()
-engines = load_engines()
+engines = load_llms()
 
 
 async def main():

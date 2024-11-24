@@ -34,7 +34,7 @@ async def client():
 @pytest.mark.asyncio
 @pytest.mark.xdist_group(name="node_graph_sequential")
 async def test_post_resource(client):
-    from horsona.llm import get_llm_engine
+    from horsona.config import get_llm
 
     node_graph.configure()
 
@@ -75,7 +75,7 @@ async def test_post_resource(client):
 
     # Create an LLM engine
     create_llm_response: Response = client.post(
-        f"/api/sessions/{session_id}/resources/{get_llm_engine.__module__}/{get_llm_engine.__name__}",
+        f"/api/sessions/{session_id}/resources/{get_llm.__module__}/{get_llm.__name__}",
         json={"name": StrArgument(value="reasoning_llm").model_dump()},
     )
     assert create_llm_response.status_code == status.HTTP_200_OK
@@ -105,7 +105,7 @@ async def test_invalid_module(client):
 @pytest.mark.asyncio
 @pytest.mark.xdist_group(name="node_graph_sequential")
 async def test_allowed_modules(client):
-    from horsona.llm import get_llm_engine
+    from horsona.config import get_llm
 
     node_graph.configure()
 
@@ -151,7 +151,7 @@ async def test_allowed_modules(client):
 
     # Test that horsona module is still allowed
     create_llm_response = client.post(
-        f"/api/sessions/{custom_session_id}/resources/{get_llm_engine.__module__}/{get_llm_engine.__name__}",
+        f"/api/sessions/{custom_session_id}/resources/{get_llm.__module__}/{get_llm.__name__}",
         json={"name": StrArgument(value="reasoning_llm").model_dump()},
     )
     assert create_llm_response.status_code == status.HTTP_200_OK
@@ -319,7 +319,7 @@ async def test_backpropagation(client):
     # Test backpropagation through API
     from horsona.autodiff.basic import HorseVariable
     from horsona.autodiff.losses import apply_loss
-    from horsona.llm import get_llm_engine
+    from horsona.config import get_llm
 
     node_graph.configure(extra_modules=[extract_pony_name.__module__])
 
@@ -331,7 +331,7 @@ async def test_backpropagation(client):
 
     # Create an LLM engine
     create_llm_response: Response = client.post(
-        f"/api/sessions/{session_id}/resources/{get_llm_engine.__module__}/{get_llm_engine.__name__}",
+        f"/api/sessions/{session_id}/resources/{get_llm.__module__}/{get_llm.__name__}",
         json={"name": StrArgument(value="reasoning_llm").model_dump()},
     )
     assert create_llm_response.status_code == status.HTTP_200_OK

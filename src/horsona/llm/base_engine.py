@@ -8,101 +8,11 @@ from typing import Any, AsyncGenerator, Callable, Optional, Type, TypeVar, Union
 from pydantic import BaseModel
 
 from horsona.autodiff.basic import HorseData
-from horsona.config.json_with_comments import load_json_with_comments
+from horsona.config import engines, load_llms
 from horsona.llm.limits import CallLimit, TokenLimit
-
-__all__ = ["AsyncLLMEngine", "LLM_CONFIG_PATH"]
-
-LLM_CONFIG_PATH = "llm_config.json"
 
 T = TypeVar("T", bound=BaseModel)
 S = TypeVar("S", bound=Union[str, T])
-
-engines: dict[str, "AsyncLLMEngine"] = {}
-_loaded_engines: bool = False
-
-
-def load_engines() -> dict[str, "AsyncLLMEngine"]:
-    """
-    Load LLM engine configurations from the config file and instantiate engine objects.
-
-    Returns:
-        dict[str, AsyncLLMEngine]: Dictionary mapping engine names to engine instances
-    """
-    global engines, _loaded_engines
-
-    if _loaded_engines:
-        return engines
-
-    from horsona.llm.anthropic_engine import AsyncAnthropicEngine
-    from horsona.llm.cerebras_engine import AsyncCerebrasEngine
-    from horsona.llm.fireworks_engine import AsyncFireworksEngine
-    from horsona.llm.grok_engine import AsyncGrokEngine
-    from horsona.llm.groq_engine import AsyncGroqEngine
-    from horsona.llm.multi_engine import create_multi_engine
-    from horsona.llm.openai_engine import AsyncOpenAIEngine
-    from horsona.llm.perplexity_engine import AsyncPerplexityEngine
-    from horsona.llm.together_engine import AsyncTogetherEngine
-
-    with open(LLM_CONFIG_PATH, "r") as f:
-        config = load_json_with_comments(f)
-
-    engines.clear()
-
-    # Create engine instances based on config
-    for item in config:
-        for name, params in item.items():
-            engine_type = params["type"]
-            model = params.get("model")
-            rate_limits = params.get("rate_limits", [])
-
-            if engine_type == "AsyncCerebrasEngine":
-                engines[name] = AsyncCerebrasEngine(
-                    model=model,
-                    rate_limits=rate_limits,
-                    name=name,
-                )
-            elif engine_type == "AsyncGroqEngine":
-                engines[name] = AsyncGroqEngine(
-                    model=model, rate_limits=rate_limits, name=name
-                )
-            elif engine_type == "AsyncFireworksEngine":
-                engines[name] = AsyncFireworksEngine(
-                    model=model, rate_limits=rate_limits, name=name
-                )
-            elif engine_type == "AsyncOpenAIEngine":
-                engines[name] = AsyncOpenAIEngine(
-                    model=model, rate_limits=rate_limits, name=name
-                )
-            elif engine_type == "AsyncAnthropicEngine":
-                engines[name] = AsyncAnthropicEngine(
-                    model=model, rate_limits=rate_limits, name=name
-                )
-            elif engine_type == "AsyncTogetherEngine":
-                engines[name] = AsyncTogetherEngine(
-                    model=model, rate_limits=rate_limits, name=name
-                )
-            elif engine_type == "AsyncGrokEngine":
-                engines[name] = AsyncGrokEngine(
-                    model=model, rate_limits=rate_limits, name=name
-                )
-            elif engine_type == "AsyncPerplexityEngine":
-                engines[name] = AsyncPerplexityEngine(
-                    model=model, rate_limits=rate_limits, name=name
-                )
-            elif engine_type == "MultiEngine":
-                sub_engines = [
-                    engines[engine_name] for engine_name in params["engines"]
-                ]
-                engines[name] = create_multi_engine(*sub_engines, name=name)
-            elif engine_type == "ReferenceEngine":
-                sub_engine = params["reference"]
-                engines[name] = engines[sub_engine]
-            else:
-                raise ValueError(f"Unknown engine type: {engine_type}")
-
-    _loaded_engines = True
-    return engines
 
 
 class RateLimits(HorseData):
@@ -273,7 +183,7 @@ class AsyncLLMEngine(HorseData, ABC):
                 raise ValueError(
                     "Cannot override fields when creating an AsyncLLMEngine by name"
                 )
-            load_engines()
+            load_llms()
             return engines[state_dict["name"]]
         else:
             return super().load_state_dict(state_dict, args, debug_prefix)
