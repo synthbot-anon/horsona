@@ -5,7 +5,7 @@ from random import random
 from typing import Any, Generic, Type, TypeVar
 
 from horsona.autodiff.basic import HorseData
-from horsona.llm.base_engine import AsyncLLMEngine, engines, load_llms
+from horsona.llm.base_engine import AsyncLLMEngine, llms, load_llms
 
 T = TypeVar("T", bound=AsyncLLMEngine)
 
@@ -173,7 +173,7 @@ class MultiEngine(HorseData, Generic[T]):
                     "Cannot override fields when creating an AsyncLLMEngine by name"
                 )
             load_llms()
-            return engines[state_dict["name"]]
+            return llms[state_dict["name"]]
         else:
             return super().load_state_dict(state_dict, args, debug_prefix)
 

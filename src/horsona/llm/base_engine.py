@@ -8,7 +8,7 @@ from typing import Any, AsyncGenerator, Callable, Optional, Type, TypeVar, Union
 from pydantic import BaseModel
 
 from horsona.autodiff.basic import HorseData
-from horsona.config import engines, load_llms
+from horsona.config import llms, load_llms
 from horsona.llm.limits import CallLimit, TokenLimit
 
 T = TypeVar("T", bound=BaseModel)
@@ -184,7 +184,7 @@ class AsyncLLMEngine(HorseData, ABC):
                     "Cannot override fields when creating an AsyncLLMEngine by name"
                 )
             load_llms()
-            return engines[state_dict["name"]]
+            return llms[state_dict["name"]]
         else:
             return super().load_state_dict(state_dict, args, debug_prefix)
 
