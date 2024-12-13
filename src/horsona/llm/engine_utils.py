@@ -1,8 +1,10 @@
 import json
-from typing import Any, Type
+from typing import Any, Type, TypeVar, Union
 from xml.sax.saxutils import escape as xml_escape
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
+
+T = TypeVar("T")
 
 
 def _convert_to_xml(obj, prefix=None, indent=0) -> str:
@@ -107,7 +109,7 @@ async def compile_user_prompt(**kwargs) -> str:
     return "\n\n".join(prompt_pieces)
 
 
-def parse_obj_response(response_model: Type[BaseModel], content: str) -> BaseModel:
+def parse_obj_response(response_model: Type[T], content: str) -> T:
     """
     Parse an object response from the LLM.
 
@@ -130,7 +132,13 @@ def parse_obj_response(response_model: Type[BaseModel], content: str) -> BaseMod
     cleaned_json = clean_json_string(content[json_start:json_end].strip())
     obj = json.loads(cleaned_json)
 
-    return response_model(**obj)
+    try:
+        if issubclass(response_model, BaseModel):
+            return response_model(**obj)
+    except TypeError:
+        pass
+
+    return TypeAdapter(response_model).validate_python(obj)
 
 
 def parse_block_response(block_type: str, content: str) -> str:

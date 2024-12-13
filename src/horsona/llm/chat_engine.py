@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from typing import Any, AsyncGenerator, Type, TypeVar, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
 
 from .base_engine import AsyncLLMEngine
 from .engine_utils import compile_user_prompt, parse_block_response, parse_obj_response
@@ -162,7 +162,7 @@ async def _generate_block_query_messages(block_type: str, prompt_args):
 
 
 async def _generate_obj_query_messages(
-    response_model: Type[BaseModel],
+    response_model: Type[BaseModel] | Type[Any],
 ) -> list[dict[str, Any]]:
     """
     Generate messages for an object query.
@@ -181,7 +181,16 @@ async def _generate_obj_query_messages(
         "JSON_SCHEMA. Use only fields specified by the JSON_SCHEMA and nothing else."
     )
 
-    schema = response_model.model_json_schema()
+    schema = None
+    try:
+        if issubclass(response_model, BaseModel):
+            schema = response_model.model_json_schema()
+    except TypeError:
+        pass
+
+    if schema is None:
+        schema = TypeAdapter(response_model).json_schema()
+
     system_prompt = (
         "Your task is to understand the content and provide "
         "the parsed objects in json that matches the following json_schema:\n\n"

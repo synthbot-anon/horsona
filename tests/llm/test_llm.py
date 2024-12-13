@@ -17,6 +17,14 @@ async def test_chat_engine(reasoning_llm: AsyncLLMEngine):
 
     assert response.name == "Celestia"
 
+    response2 = await reasoning_llm.query_object(
+        list[str],
+        SNIPPET="Celestia was very happy that Twilight's value were being satisfied through friendship.",
+        TASK="Identify the names of the characters mentioned in the SNIPPET.",
+    )
+
+    assert set(response2) == {"Celestia", "Twilight"}
+
 
 @pytest.mark.asyncio
 async def test_load(reasoning_llm: AsyncLLMEngine):
