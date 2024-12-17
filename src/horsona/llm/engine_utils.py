@@ -27,12 +27,12 @@ def _convert_to_xml(obj, prefix=None, indent=0) -> str:
     if isinstance(obj, dict):
         result = []
         for key, value in obj.items():
-            if not isinstance(value, (dict, list)):
+            if not isinstance(value, (dict, list, set)):
                 single_item = True
             else:
                 single_item = len(value) == 1
 
-            if single_item and not isinstance(value, (dict, list)):
+            if single_item and not isinstance(value, (dict, list, set)):
                 value_str = _convert_to_xml(value, prefix + [key], 0)
                 closing_indent = ""
                 newline = ""
@@ -53,15 +53,15 @@ def _convert_to_xml(obj, prefix=None, indent=0) -> str:
                 result.append((f"{indent_str}<{prefix}.{key}></{prefix}.{key}>"))
 
         return "\n".join(result)
-    elif isinstance(obj, list):
+    elif isinstance(obj, (list, set)):
         result = []
         for i, value in enumerate(obj):
-            if not isinstance(value, (dict, list)):
+            if not isinstance(value, (dict, list, set)):
                 single_item = True
             else:
                 single_item = len(value) == 1
 
-            if single_item and not isinstance(value, (dict, list)):
+            if single_item and not isinstance(value, (dict, list, set)):
                 value_str = _convert_to_xml(value, prefix, 0)
                 closing_indent = ""
                 newline = ""
@@ -184,7 +184,7 @@ async def _convert_to_dict(obj: Any) -> dict:
         return obj.model_dump()
     elif isinstance(obj, dict):
         return {k: await _convert_to_dict(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, (list, tuple, set)):
         return [await _convert_to_dict(v) for v in obj]
     elif isinstance(obj, (int, float, str, bool)):
         return obj
