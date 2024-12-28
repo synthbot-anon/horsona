@@ -32,7 +32,7 @@ async def embedding_llm(reasoning_llm, query_index):
 async def test_query_block(embedding_llm):
     response = await embedding_llm.query_block(
         "text",
-        PROMPT="What is James doing with the camera?",
+        TASK="What is James doing with the camera?",
     )
 
     print(response)
@@ -48,7 +48,7 @@ async def test_query_object(embedding_llm):
 
     response = await embedding_llm.query_object(
         Response,
-        PROMPT="What color is Honeycrisp?",
+        TASK="What color is Honeycrisp?",
     )
 
     print(response)
@@ -71,7 +71,7 @@ async def test_load_embedding_llm(reasoning_llm, embedding_llm):
 async def test_query_with_context(embedding_llm):
     response = await embedding_llm.query_block(
         "text",
-        PROMPT="What does the monitor have attached to it?",
+        TASK="What does the monitor have attached to it?",
     )
 
     print(response)

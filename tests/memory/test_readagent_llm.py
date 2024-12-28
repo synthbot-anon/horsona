@@ -70,6 +70,7 @@ Ashley brewed herself a cup of tea, and brought it over along with some scrap pa
 import pytest
 from pydantic import BaseModel
 
+from horsona.autodiff.variables import Value
 from horsona.llm.base_engine import AsyncLLMEngine
 from horsona.memory.gist_module import GistModule, paginate
 from horsona.memory.readagent_llm import ReadAgentLLMEngine
@@ -86,7 +87,7 @@ async def readagent_llm(reasoning_llm):
 
     gist_module = GistModule(reasoning_llm)
     for page in paginate(STORY_TEXT, max_chars_per_page=1500):
-        await gist_module.append(page)
+        await gist_module.append(Value("Story text", page))
 
     _readagent_llm = ReadAgentLLMEngine(reasoning_llm, gist_module, max_pages=2)
     return _readagent_llm
@@ -96,7 +97,7 @@ async def readagent_llm(reasoning_llm):
 async def test_query_block(readagent_llm):
     response = await readagent_llm.query_block(
         "text",
-        PROMPT="What is Ashley supposed to do with the game?",
+        TASK="What is Ashley supposed to do with the game?",
     )
 
     assert (
@@ -114,7 +115,7 @@ async def test_query_object(readagent_llm):
 
     response = await readagent_llm.query_object(
         Response,
-        PROMPT="Who wrote the paper that Ashley received from her professor?",
+        TASK="Who wrote the paper that Ashley received from her professor?",
     )
 
     assert isinstance(response, Response)

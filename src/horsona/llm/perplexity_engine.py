@@ -1,8 +1,10 @@
 import json
 import os
-import re
+from typing import Any, AsyncGenerator
 
 import httpx
+
+from horsona.llm.base_engine import LLMMetrics, tracks_metrics
 
 from .chat_engine import AsyncChatEngine
 from .engine_utils import clean_json_string
@@ -35,8 +37,13 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         self.model = model
         self.apikey = os.environ["PERPLEXITY_API_KEY"]
 
-    async def query(self, **kwargs) -> tuple[str, int]:
+    @tracks_metrics
+    async def query(
+        self, *, metrics: LLMMetrics, **kwargs
+    ) -> AsyncGenerator[str, None]:
         url = "https://api.perplexity.ai/chat/completions"
+        kwargs["messages"] = _clean_messages(kwargs.get("messages", []))
+        print(kwargs["messages"])
 
         payload = {
             "model": self.model,
@@ -59,4 +66,35 @@ class AsyncPerplexityEngine(AsyncChatEngine):
         content = response_json["choices"][0]["message"]["content"]
         total_tokens = response_json["usage"]["total_tokens"]
 
-        return content, total_tokens
+        metrics.tokens_consumed = total_tokens
+
+        yield content
+
+
+def _clean_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    new_messages = []
+
+    # System messages all come first
+    system_messages = [m for m in messages if m["role"] == "system"]
+    if system_messages:
+        new_messages.append(
+            {
+                "role": "system",
+                "content": "\n\n".join([m["content"] for m in system_messages]),
+            }
+        )
+
+    # User and assistant messages must alternate
+
+    previous_role = None
+    for m in messages:
+        if m["role"] not in ["user", "assistant"]:
+            continue
+
+        if m["role"] == previous_role:
+            new_messages[-1]["content"] += "\n\n" + m["content"]
+        else:
+            new_messages.append(m)
+        previous_role = m["role"]
+
+    return new_messages

@@ -1,11 +1,15 @@
 import asyncio
 import importlib
 import inspect
+import json
+import zipfile
 from abc import ABC
 from collections import defaultdict
 from functools import wraps
+from io import BytesIO
 from types import MappingProxyType
 from typing import (
+    IO,
     Any,
     AsyncGenerator,
     Awaitable,
@@ -342,3 +346,78 @@ def state_dict(value: Any) -> dict | None:
         }
     else:
         return None
+
+
+def zip(data: dict, file: str | IO[bytes] = None) -> None:
+    """
+    Save a dictionary containing JSON-serializable data, binary data, and nested dictionaries to a zip file.
+
+    Args:
+        data: Dictionary containing string/JSON data, binary data, and nested dictionaries
+        zip_path: Path where the zip file should be saved
+    """
+    zipbytes = file or BytesIO()
+    with zipfile.ZipFile(zipbytes, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Separate binary and JSON-serializable data
+        binary_data = {}
+        json_data = {}
+
+        def process_dict(d: dict, binary_dict: dict, json_dict: dict, prefix: str = ""):
+            for key, value in d.items():
+                full_key = f"{prefix}/{key}" if prefix else key
+                if isinstance(value, bytes):
+                    binary_dict[full_key] = value
+                elif isinstance(value, dict):
+                    json_dict[key] = {}
+                    process_dict(value, binary_dict, json_dict[key], full_key)
+                else:
+                    json_dict[key] = value
+
+        # Process the input dictionary recursively
+        process_dict(data, binary_data, json_data)
+
+        # Write JSON data
+        json_bytes = json.dumps(json_data).encode("utf-8")
+        zf.writestr("data.json", json_bytes)
+
+        # Write binary files
+        for key, binary in binary_data.items():
+            zf.writestr(f"binary/{key}", binary)
+
+    return zipbytes
+
+
+def unzip(file: str | IO[bytes]) -> dict:
+    """
+    Load a dictionary containing JSON-serializable data, binary data, and nested dictionaries from a zip file.
+
+    Args:
+        zip_path: Path to the zip file containing the saved dictionary data
+
+    Returns:
+        Dictionary containing the loaded data with original structure restored
+    """
+    with zipfile.ZipFile(file, "r") as zf:
+        # Load JSON data
+        json_bytes = zf.read("data.json")
+        json_data = json.loads(json_bytes)
+
+        # Load binary files
+        binary_data = {}
+        for filename in zf.namelist():
+            if filename.startswith("binary/"):
+                key = filename.replace("binary/", "", 1)
+                binary_data[key] = zf.read(filename)
+
+        # Merge binary data back into structure
+        result = json_data
+        for key, value in binary_data.items():
+            parts = key.split("/")
+            target = result
+            for part in parts[:-1]:
+                if part not in target:
+                    target[part] = {}
+                target = target[part]
+            target[parts[-1]] = value
+
+        return result

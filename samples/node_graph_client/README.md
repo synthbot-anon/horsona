@@ -22,7 +22,7 @@ poetry -C horsona-node-graph-client/ install
 poetry -C horsona-modules-client/ install
 
 # Add local client packages to project
-poetry add ./horsona-node-graph-client ./horsona-modules-client
+poetry add --editable ./horsona-node-graph-client ./horsona-modules-client
 ```
 
 ## Running the client

@@ -35,6 +35,7 @@ class LogModule(HorseModule, Generic[T]):
             **kwargs: Additional keyword arguments for parent HorseModule
         """
         super().__init__(**kwargs)
+        self.llm = llm
         self.recent_messages_module = recent_messages_module or ListModule()
         self.overview_module = overview_module or GistModule(llm)
 

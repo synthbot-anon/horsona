@@ -26,6 +26,7 @@ _session_cleanup_task = None
 _allowed_modules_regex = re.compile(r"^(horsona\..*)$")
 _allowed_modules: list[str] = []
 _allowed_module_names: set[str] = set()
+skipped_functions: set[str] = set()
 
 
 class Resource(BaseModel):
@@ -72,7 +73,8 @@ def configure(
         _session_cleanup_task, \
         _allowed_modules, \
         _allowed_module_names, \
-        _allowed_modules_regex
+        _allowed_modules_regex, \
+        skipped_functions
 
     _sessions = {}
     _session_timeout = session_timeout
@@ -80,7 +82,7 @@ def configure(
     _allowed_modules_regex = re.compile(
         (r"^(" + "|".join([rf"{x}$|{x}\..*$" for x in _allowed_modules]) + ")")
     )
-
+    skipped_functions.clear()
     _allowed_module_names = set()
     _allowed_modules = set()
     for parent_module_name in ["horsona", *extra_modules]:
@@ -154,7 +156,10 @@ def _get_param_annotation(annotation) -> type:
     elif origin == typing.TypeVar:
         return _get_param_annotation(annotation.__bound__)
     elif origin == type:
-        return _get_param_annotation(annotation.__args__[0])
+        if hasattr(annotation, "__args__"):
+            return _get_param_annotation(annotation.__args__[0])
+        else:
+            return NodeArgument
     elif inspect.isclass(origin):
         return NodeArgument
     elif isinstance(origin, str):
@@ -188,6 +193,9 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     4. Adds the route to the FastAPI app
     """
     # Get original method specifications
+    while hasattr(method_obj, "__wrapped__"):
+        method_obj = method_obj.__wrapped__
+
     orig_spec = inspect.getfullargspec(method_obj)
     orig_params = orig_spec.args
     orig_annotations = method_obj.__annotations__
@@ -208,6 +216,7 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
                 new_annotations[param] = DictArgument
                 continue
             print(f"Skipping {path} due to missing annotation for parameter {param}")
+            skipped_functions.add(path)
             return None
 
         # Convert annotation to Argument type
@@ -216,6 +225,8 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
             print(
                 f"Skipping {path} due to unsupported annotation for parameter {param}"
             )
+            skipped_functions.add(path)
+
             return None
 
         new_annotations[param] = new_annotation
@@ -224,6 +235,7 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     if "return" not in orig_annotations:
         if method_obj.__name__ != "__init__":
             print(f"Skipping {path} due to missing return annotation")
+            skipped_functions.add(path)
             return None
         else:
             new_annotations["return"] = NodeArgument
@@ -800,9 +812,6 @@ async def post_resource(session_id, module_name, function_name, body: dict = Bod
     result = await execute(module_name, class_name, function_name, processed_kwargs)
 
     result_data, result_argument = pack_result(session_id, [], result, recurse=True)
-
-    print("returning:", result_argument)
-    print("data:", result_data)
 
     return ResourceResponse(
         result=result_argument,

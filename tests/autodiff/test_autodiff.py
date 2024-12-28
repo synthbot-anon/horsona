@@ -8,7 +8,7 @@ from horsona.autodiff.variables import Value
 
 @pytest.mark.asyncio
 async def test_autodiff(reasoning_llm):
-    input_text = Value("Story dialogue", "Hello Luna.", reasoning_llm)
+    false_dialogue_memory = Value("Story dialogue", "Hello Luna.", reasoning_llm)
 
     class PonyName(BaseModel):
         name: str
@@ -16,14 +16,16 @@ async def test_autodiff(reasoning_llm):
     extracted_name = await extract_object(
         reasoning_llm,
         PonyName,
-        TEXT=input_text,
+        TEXT=false_dialogue_memory,
         TASK="Extract the name from the TEXT.",
     )
 
     loss = await apply_loss(
-        extracted_name, "The name should be Celestia"
-    ) + await apply_loss(extracted_name, "They should be addressed as Princess")
+        extracted_name, "The name should have been Celestia"
+    ) + await apply_loss(
+        extracted_name, "They should have been addressed as Princess [...]"
+    )
 
-    await loss.step([input_text])
+    await loss.step([false_dialogue_memory])
 
-    assert input_text.value == "Hello Princess Celestia."
+    assert false_dialogue_memory.value == "Hello Princess Celestia."

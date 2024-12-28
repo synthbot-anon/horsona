@@ -98,42 +98,6 @@ files = [
 ]
 
 [[package]]
-name = "horsona-modules-client"
-version = "0.1.0"
-description = "A client library for accessing Horsona Modules"
-optional = false
-python-versions = "^3.8"
-files = []
-develop = false
-
-[package.dependencies]
-attrs = ">=21.3.0"
-httpx = ">=0.20.0,<0.28.0"
-python-dateutil = "^2.8.0"
-
-[package.source]
-type = "directory"
-url = "horsona-modules-client"
-
-[[package]]
-name = "horsona-node-graph-client"
-version = "0.1.0"
-description = "A client library for accessing Horsona Node Graph"
-optional = false
-python-versions = "^3.8"
-files = []
-develop = false
-
-[package.dependencies]
-attrs = ">=21.3.0"
-httpx = ">=0.20.0,<0.28.0"
-python-dateutil = "^2.8.0"
-
-[package.source]
-type = "directory"
-url = "horsona-node-graph-client"
-
-[[package]]
 name = "httpcore"
 version = "1.0.7"
 description = "A minimal low-level HTTP client."
@@ -668,4 +632,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "aed35bb06175cdd6437c93c20be8a73860fbf9f86c239523a46365ea4ef833a1"
+content-hash = "166ee90eec1979ae0ff32e7b82d03c2c886cec90ece0044b3bb315774291dd1e"

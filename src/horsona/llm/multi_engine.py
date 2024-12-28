@@ -2,15 +2,68 @@ import asyncio
 import inspect
 import sys
 from random import random
-from typing import Type, TypeVar
+from typing import Any, Generic, Type, TypeVar
 
 from horsona.autodiff.basic import HorseData
-from horsona.llm.base_engine import AsyncLLMEngine, engines, load_engines
+from horsona.llm.base_engine import AsyncLLMEngine, llms, load_llms
 
 T = TypeVar("T", bound=AsyncLLMEngine)
 
 
-class MultiEngine(HorseData):
+def get_mro_hierarchy(cls: Type) -> tuple[Type, ...]:
+    """Returns the Method Resolution Order (MRO) for a class"""
+    return cls.__mro__
+
+
+def get_type(obj: Any) -> Type:
+    if hasattr(obj, "get_type"):
+        return obj.get_type()
+    else:
+        return type(obj)
+
+
+def find_greatest_common_ancestor(objects: list[Any]) -> Type:
+    """
+    Find the most specific common ancestor class for a list of objects.
+
+    Args:
+        objects (list): List of Python objects
+
+    Returns:
+        type: The most specific common ancestor class
+
+    Example:
+        >>> class Animal: pass
+        >>> class Mammal(Animal): pass
+        >>> class Dog(Mammal): pass
+        >>> class Cat(Mammal): pass
+        >>> find_greatest_common_ancestor([Dog(), Cat()])
+        <class 'Mammal'>
+    """
+    if not objects:
+        raise ValueError("List of objects cannot be empty")
+
+    # Get the MRO (Method Resolution Order) for the first object's class
+    mros = [get_mro_hierarchy(get_type(obj)) for obj in objects]
+
+    # Find common classes among all objects
+    common_classes = set(mros[0])
+    for mro in mros[1:]:
+        common_classes.intersection_update(mro)
+
+    if not common_classes:
+        return object  # If no common ancestor found, return base object class
+
+    # Find the most specific common ancestor
+    # This will be the class that appears earliest in the first object's MRO
+    for cls in mros[0]:
+        if cls in common_classes:
+            return cls
+
+    return object  # Fallback to object class if no common ancestor found
+
+
+class MultiEngine(HorseData, Generic[T]):
     def __init__(
         self,
         engines: list[T],
@@ -85,7 +138,7 @@ class MultiEngine(HorseData):
         return self
 
     def __getattr__(self, name: str):
-        if name in ("state_dict", "load_state_dict"):
+        if name in ("state_dict", "load_state_dict", "get_type"):
             return getattr(self, name)
 
         selection = getattr(self, "select_engine")()
@@ -94,6 +147,9 @@ class MultiEngine(HorseData):
             return getattr(self, "async_wrapper")(name)
         else:
             return result
+
+    def get_type(self) -> Type[T]:
+        return find_greatest_common_ancestor(self.engines)
 
     def state_dict(self, **override: dict) -> dict:
         if self.name is not None:
@@ -116,8 +172,8 @@ class MultiEngine(HorseData):
                 raise ValueError(
                     "Cannot override fields when creating an AsyncLLMEngine by name"
                 )
-            load_engines()
-            return engines[state_dict["name"]]
+            load_llms()
+            return llms[state_dict["name"]]
         else:
             return super().load_state_dict(state_dict, args, debug_prefix)
 

@@ -77,7 +77,9 @@ class ListModule(HorseModule, Generic[T]):
             result = new_item
 
         # Remove oldest items until under max length
-        while sum(self.item_lengths) + pending_length > self.max_length:
+        while self.items and (
+            sum(self.item_lengths) + pending_length > self.max_length
+        ):
             self.items.pop(0)
             self.item_lengths.pop(0)
 

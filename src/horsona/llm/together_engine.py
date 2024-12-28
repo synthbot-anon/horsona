@@ -1,9 +1,12 @@
+from typing import AsyncGenerator
+
 from together import AsyncTogether
+from together.types import ChatCompletionChunk, ChatCompletionResponse
 
-from .chat_engine import AsyncChatEngine
+from horsona.llm.oai_engine import AsyncOAIEngine
 
 
-class AsyncTogetherEngine(AsyncChatEngine):
+class AsyncTogetherEngine(AsyncOAIEngine):
     """
     An asynchronous implementation of ChatEngine for interacting with Together models.
 
@@ -14,7 +17,7 @@ class AsyncTogetherEngine(AsyncChatEngine):
         client (AsyncTogether): An instance of the asynchronous Together client for API interactions.
 
     Inherits from:
-        AsyncChatEngine
+        AsyncOAIEngine: Base class for OpenAI-compatible API engines
     """
 
     def __init__(self, model: str, *args, **kwargs):
@@ -30,8 +33,18 @@ class AsyncTogetherEngine(AsyncChatEngine):
         self.model = model
         self.client = AsyncTogether()
 
-    async def query(self, **kwargs) -> tuple[str, int]:
-        response = await self.client.chat.completions.create(
-            model=self.model, stream=False, **kwargs
-        )
-        return response.choices[0].message.content, response.usage.total_tokens
+    async def create(
+        self, **kwargs
+    ) -> AsyncGenerator[ChatCompletionChunk, None] | ChatCompletionResponse:
+        """
+        Create a chat completion using the Together API.
+
+        Args:
+            **kwargs: Keyword arguments to pass to the Together API.
+                     The model name will be automatically added.
+
+        Returns:
+            Completion: The completion response from the Together API.
+        """
+        kwargs["model"] = self.model
+        return await self.client.chat.completions.create(**kwargs)
