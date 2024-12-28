@@ -16,11 +16,12 @@ RUN pipx ensurepath
 RUN pipx install poetry
 RUN pipx upgrade poetry
 
-COPY ./samples/node_graph_api /home/celestia/
-RUN pipx run poetry install -C /home/celestia/node_graph_api
+COPY ./samples/node_graph_server /home/celestia/
+RUN pipx run poetry install -C /home/celestia/node_graph_server
 
 USER celestia
 WORKDIR /host
-ENTRYPOINT ["pipx", "run", "poetry", "-C", "/home/celestia/node_graph_api", "run", "python", "-m", "node_graph_api"]
+ENTRYPOINT ["pipx", "run", "poetry", "-C", "/home/celestia/node_graph_server", "run", \
+            "python", "-m", "node_graph_server"]
+CMD ["--host", "0.0.0.0", "--port", "8000"]
 
-EXPOSE 8000

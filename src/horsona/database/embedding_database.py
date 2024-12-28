@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Any
 
 from horsona.database.base_database import Database
@@ -12,17 +13,26 @@ class EmbeddingDatabase(Database):
         super().__init__(llm, **kwargs)
         self.index = index
         if data is not None:
-            self.data = data
+            self.data = defaultdict(lambda: [], data)
         else:
-            self.data = {}
+            self.data = defaultdict(lambda: [])
 
     async def insert(self, data: dict) -> None:
         await self.index.extend(list(data.keys()))
-        self.data.update(data)
+        for key, value in data.items():
+            self.data[key].append(value)
 
     async def query(self, query: str, topk: int = 1) -> dict:
-        indices = await self.index.query(query, topk)
-        return {key: self.data[key] for key in indices.values() if key in self.data}
+        result_with_weights = await self.query_with_weights(query, topk)
+        return {k: v[0] for k, v in result_with_weights.items()}
+
+    async def query_with_weights(self, query: str, topk: int = 1) -> dict:
+        indices = await self.index.query_with_weights(query, topk)
+        return {
+            key: (self.data[key], weight)
+            for key, weight in indices.values()
+            if key in self.data
+        }
 
     async def delete(self, index: str) -> None:
         deleted_keys = await self.index.delete([index])

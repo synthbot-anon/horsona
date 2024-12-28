@@ -8,7 +8,7 @@ This sample demonstrates how to use the GPT-SoVITS text-to-speech system to gene
 
 1. Create a new folder called `gptsovits_data`
 
-2. Download and unzip [these files](https://drive.google.com/file/d/1UWW1xccBluHakzk2OwBSCDEjPwTXs8Ui/view?usp=sharing) into the `gptsovits_data` folder. This contains:
+2. Download and unzip [these files](https://drive.google.com/file/d/106i6hQVDrUuULe_k8-MSi7wB4fW0X2Qx/view?usp=sharing) into the `gptsovits_data` folder. This contains:
    - Required pretrained models 
    - API config file
    - Sample voices in the required directory structure
@@ -17,9 +17,8 @@ This sample demonstrates how to use the GPT-SoVITS text-to-speech system to gene
    ```bash
    docker run --name gptsovits --rm -it -p 9880:9880 \
      -v "./tts-configs:/workspace/GPT_SoVITS/configs" \
-     -v "./pretrained-models/:/workspace/GPT_SoVITS/pretrained_models" \
      -v "./voices:/voices" \
-     synthbot/gpt-sovits:v2 python api.py -a 0.0.0.0
+     synthbot/gpt-sovits:v3 python api.py -a 0.0.0.0
    ```
 
 ### Setting up the Repository

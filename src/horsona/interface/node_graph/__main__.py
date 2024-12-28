@@ -24,6 +24,12 @@ async def main():
     parser.add_argument(
         "--extra-modules", nargs="+", default=[], help="Extra modules to allow"
     )
+    parser.add_argument(
+        "--host", type=str, default="127.0.0.1", help="Host to run the server on"
+    )
+    parser.add_argument(
+        "--port", type=int, default=8000, help="Port to run the server on"
+    )
     args = parser.parse_args()
 
     app = FastAPI(title="Horsona Node Graph")
@@ -34,7 +40,7 @@ async def main():
         extra_modules=args.extra_modules,
     )
 
-    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
+    config = uvicorn.Config(app, host=args.host, port=args.port, log_level="info")
     server = uvicorn.Server(config)
     await server.serve()
 

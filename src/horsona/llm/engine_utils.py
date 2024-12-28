@@ -1,8 +1,10 @@
 import json
-from typing import Any, Type
+from typing import Any, Type, TypeVar, Union
 from xml.sax.saxutils import escape as xml_escape
 
-from pydantic import BaseModel
+from pydantic import BaseModel, TypeAdapter
+
+T = TypeVar("T")
 
 
 def _convert_to_xml(obj, prefix=None, indent=0) -> str:
@@ -25,12 +27,12 @@ def _convert_to_xml(obj, prefix=None, indent=0) -> str:
     if isinstance(obj, dict):
         result = []
         for key, value in obj.items():
-            if not isinstance(value, (dict, list)):
+            if not isinstance(value, (dict, list, set)):
                 single_item = True
             else:
                 single_item = len(value) == 1
 
-            if single_item and not isinstance(value, (dict, list)):
+            if single_item and not isinstance(value, (dict, list, set)):
                 value_str = _convert_to_xml(value, prefix + [key], 0)
                 closing_indent = ""
                 newline = ""
@@ -51,15 +53,15 @@ def _convert_to_xml(obj, prefix=None, indent=0) -> str:
                 result.append((f"{indent_str}<{prefix}.{key}></{prefix}.{key}>"))
 
         return "\n".join(result)
-    elif isinstance(obj, list):
+    elif isinstance(obj, (list, set)):
         result = []
         for i, value in enumerate(obj):
-            if not isinstance(value, (dict, list)):
+            if not isinstance(value, (dict, list, set)):
                 single_item = True
             else:
                 single_item = len(value) == 1
 
-            if single_item and not isinstance(value, (dict, list)):
+            if single_item and not isinstance(value, (dict, list, set)):
                 value_str = _convert_to_xml(value, prefix, 0)
                 closing_indent = ""
                 newline = ""
@@ -107,57 +109,7 @@ async def compile_user_prompt(**kwargs) -> str:
     return "\n\n".join(prompt_pieces)
 
 
-def _compile_obj_system_prompt(response_model: Type[BaseModel]) -> str:
-    """
-    Compile a system prompt for a given response model.
-
-    This function creates a prompt instructing the model to return
-    a JSON object matching the schema of the provided response model.
-
-    Args:
-        response_model (BaseModel): The Pydantic model to use for the response schema.
-
-    Returns:
-        str: The compiled system prompt.
-    """
-    schema = response_model.model_json_schema()
-    return (
-        "Your task is to understand the content and provide "
-        "the parsed objects in json that matches the following json_schema:\n\n"
-        f"{json.dumps(schema, indent=2)}\n\n"
-        "Make sure to return an instance of the JSON, not the schema itself."
-    )
-
-
-async def generate_obj_query_messages(
-    response_model: Type[BaseModel], prompt_args: dict
-) -> list[dict[str, Any]]:
-    """
-    Generate messages for an object query.
-
-    This function creates a system message and a user message for querying
-    an LLM to generate a response matching a specific model.
-
-    Args:
-        response_model (BaseModel): The expected response model.
-        prompt_args: Arguments to include in the user prompt.
-
-    Returns:
-        list: A list of message dictionaries for the LLM query.
-    """
-    user_prompt = await compile_user_prompt(**prompt_args) + (
-        "\n\nReturn the correct JSON response within a ```json codeblock, not the "
-        "JSON_SCHEMA. Use only fields specified by the JSON_SCHEMA and nothing else."
-    )
-    system_prompt = _compile_obj_system_prompt(response_model)
-
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
-
-
-def parse_obj_response(response_model: Type[BaseModel], content: str) -> BaseModel:
+def parse_obj_response(response_model: Type[T], content: str) -> T:
     """
     Parse an object response from the LLM.
 
@@ -180,7 +132,13 @@ def parse_obj_response(response_model: Type[BaseModel], content: str) -> BaseMod
     cleaned_json = clean_json_string(content[json_start:json_end].strip())
     obj = json.loads(cleaned_json)
 
-    return response_model(**obj)
+    try:
+        if issubclass(response_model, BaseModel):
+            return response_model(**obj)
+    except TypeError:
+        pass
+
+    return TypeAdapter(response_model).validate_python(obj)
 
 
 def parse_block_response(block_type: str, content: str) -> str:
@@ -226,7 +184,7 @@ async def _convert_to_dict(obj: Any) -> dict:
         return obj.model_dump()
     elif isinstance(obj, dict):
         return {k: await _convert_to_dict(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, (list, tuple, set)):
         return [await _convert_to_dict(v) for v in obj]
     elif isinstance(obj, (int, float, str, bool)):
         return obj

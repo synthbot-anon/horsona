@@ -31,7 +31,7 @@ async def log_llm(reasoning_llm, log_module):
 async def test_query_with_story_context(log_llm, log_module):
     response = await log_llm.query_block(
         "text",
-        PROMPT="Where did Mr. Peterson fly to?",
+        TASK="Where did Mr. Peterson fly to?",
     )
 
     assert "berlin" in response.lower() or "hofvarpnir" in response.lower()
@@ -45,7 +45,7 @@ async def test_query_object_with_story_context(log_llm, log_module):
     # Query should return structured response referencing conversation
     response = await log_llm.query_object(
         Response,
-        PROMPT="What is Lars the head of?",
+        TASK="What is Lars the head of?",
     )
 
     assert response.department.lower() == "business development"

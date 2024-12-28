@@ -1,21 +1,21 @@
-from openai import AsyncOpenAI
-from openai.types.completion import Completion
+from openai import AsyncOpenAI, AsyncStream
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 from .oai_engine import AsyncOAIEngine
 
 
 class AsyncOpenAIEngine(AsyncOAIEngine):
     """
-    An asynchronous implementation of ChatEngine for interacting with Cerebras models.
+    An asynchronous implementation of ChatEngine for interacting with OpenAI models.
 
-    This class provides an asynchronous interface for querying Cerebras language models.
+    This class provides an asynchronous interface for querying OpenAI language models.
 
     Attributes:
-        model (str): The name of the Cerebras model to use.
-        client (AsyncCerebras): An instance of the asynchronous Cerebras client for API interactions.
+        model (str): The name of the OpenAI model to use.
+        client (AsyncOpenAI): An instance of the asynchronous OpenAI client for API interactions.
 
     Inherits from:
-        AsyncChatEngine
+        AsyncOAIEngine: Base class for OpenAI-compatible API engines
     """
 
     def __init__(self, model: str, *args, **kwargs):
@@ -23,5 +23,8 @@ class AsyncOpenAIEngine(AsyncOAIEngine):
         self.model = model
         self.client = AsyncOpenAI()
 
-    async def create(self, **kwargs) -> Completion:
-        return await self.client.chat.completions.create(model=self.model, **kwargs)
+    async def create(
+        self, **kwargs
+    ) -> AsyncStream[ChatCompletionChunk] | ChatCompletion:
+        kwargs["model"] = self.model
+        return await self.client.chat.completions.create(**kwargs)

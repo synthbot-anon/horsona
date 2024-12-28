@@ -4,9 +4,7 @@ import warnings
 import pytest
 from dotenv import load_dotenv
 
-from horsona.index import indices, load_indices
-from horsona.llm import engines as llm_engines
-from horsona.llm import load_engines as load_llm_engines
+from horsona.config import load_indices, load_llms
 
 load_dotenv()
 
@@ -21,7 +19,7 @@ class FixtureFunctionWrapper:
 
 
 if os.path.exists("llm_config.json"):
-    load_llm_engines()
+    llm_engines = load_llms()
     for key, engine in llm_engines.items():
         globals()[key] = pytest.fixture(scope="session", autouse=False)(
             FixtureFunctionWrapper(key, engine)
@@ -30,7 +28,7 @@ else:
     warnings.warn("LLM config file not found. Skipping LLM fixtures.")
 
 if os.path.exists("index_config.json"):
-    load_indices()
+    indices = load_indices()
     for key, index in indices.items():
         globals()[key] = pytest.fixture(scope="session", autouse=False)(
             FixtureFunctionWrapper(key, index)

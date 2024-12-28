@@ -46,6 +46,7 @@ poetry run pytest -n 4
 2. Edit `llm_config.json` to use your new LLM(s). Supported "types" include:
    - AsyncCerebrasEngine
    - AsyncGroqEngine
+   - AsyncGrokEngine
    - AsyncFireworksEngine
    - AsyncOpenAIEngine
    - AsyncAnthropicEngine
@@ -162,25 +163,28 @@ docker exec ollama ollama pull imcurie/bge-large-en-v1.5
 
 # Target feature list
 This target feature list is incomplete:
-- <span style="color: red;">[Missing functionality]</span> Video generation (via API) alongside text generation
-- <span style="color: red;">[Missing functionality]</span> Integrations with various text generation interfaces (SillyTavern, Risu, etc.)
-- <span style="color: red;">[Missing functionality]</span> Integration with ComfyUI
-- <span style="color: yellow;">[Missing tests]</span> Automated character card adjustments
-- <span style="color: red;">[Missing functionality]</span> Lorebook generation from large text corpora
-- <span style="color: green;">[Done]</span> Splitting prompts into multiple calls for more reliable generation
-- <span style="color: red;">[Missing functionality]</span> Simultaneously accounting for multiple kinds of data
-- <span style="color: red;">[Missing functionality]</span> In-universe and retrospective consistency checks
-- <span style="color: red;">[Missing functionality]</span> Organizing text corpora into compatible universes
-- <span style="color: red;">[Missing functionality]</span> Support for RPG functionality, like HP, XP, and dice rolls based on a rule book
-- <span style="color: red;">[Missing functionality]</span> Transparent adaptation of video generation prompts to the API & model in use
-- <span style="color: red;">[Missing functionality]</span> Making & rolling back high level edits to character cards
-- <span style="color: green;">[Done]</span> Continue generating the input, as opposed to responding to it (like non-chat GPTs)
-- <span style="color: red;">[Missing functionality]</span> Jailbreak support
-- <span style="color: red;">[Missing functionality]</span> Fine-tuning dataset creation
-- <span style="color: red;">[Missing functionality]</span> Speech generation and voice morphing the results
-- <span style="color: red;">[Missing functionality]</span> Streaming outputs
-- <span style="color: red;">[Missing functionality]</span> Integration with game engines
-- <span style="color: yellow;">[Missing tests]</span> Actions (function call) outputs
+```diff
+- Video generation (via API) alongside text generation
++ [Done] Integrations with various text generation interfaces (SillyTavern, Risu, etc.)
+- Integration with ComfyUI
+! [Missing tests] Automated character card adjustments
+- Lorebook generation from large text corpora
++ [Done] Splitting prompts into multiple calls for more reliable generation
+- Simultaneously accounting for multiple kinds of data
+- In-universe and retrospective consistency checks
+- Organizing text corpora into compatible universes
+- Support for RPG functionality, like HP, XP, and dice rolls based on a rule book
+- Transparent adaptation of video generation prompts to the API & model in use
+- Making & rolling back high level edits to character cards
++ [Done] Continue generating the input, as opposed to responding to it (like non-chat GPTs)
+- Jailbreak support
+- Fine-tuning dataset creation
++ [Done] Speech generation
++ [Done] Streaming outputs
++ [Done] Integration with game engines
+! [Missing tests] Actions (function call) outputs
++ [Done] Organize retrieval data by folders and tags
+```
 
 If you think of other features you want in a general-purpose chatbot library, let me know in the thread.
 
