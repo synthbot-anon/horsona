@@ -97,8 +97,11 @@ def configure(
             for loader, module_name, is_pkg in pkgutil.walk_packages(
                 module.__path__, parent_module_name + "."
             ):
-                _allowed_modules.add(importlib.import_module(module_name))
-                _allowed_module_names.add(module_name)
+                try:
+                    _allowed_modules.add(importlib.import_module(module_name))
+                    _allowed_module_names.add(module_name)
+                except Exception as e:
+                    print(f"Error importing module {module_name}: {e}")
     if _session_cleanup_task is not None:
         asyncio.create_task(reset_session_cleanup_task())
 

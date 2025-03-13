@@ -16,7 +16,7 @@ RUN pipx ensurepath
 RUN pipx install poetry
 RUN pipx upgrade poetry
 
-COPY ./samples/node_graph_server /home/celestia/
+COPY ./samples/node_graph_server /home/celestia/node_graph_server
 RUN pipx run poetry install -C /home/celestia/node_graph_server
 
 USER celestia
