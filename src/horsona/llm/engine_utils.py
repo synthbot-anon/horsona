@@ -1,5 +1,5 @@
 import json
-from typing import Any, Type, TypeVar, Union
+from typing import Any, Type, TypeVar
 from xml.sax.saxutils import escape as xml_escape
 
 from pydantic import BaseModel, TypeAdapter
@@ -109,7 +109,7 @@ async def compile_user_prompt(**kwargs) -> str:
     return "\n\n".join(prompt_pieces)
 
 
-def parse_obj_response(response_model: Type[T], content: str) -> T:
+def parse_obj_response(response_model: Type[T] | str, content: str) -> T:
     """
     Parse an object response from the LLM.
 
@@ -131,6 +131,9 @@ def parse_obj_response(response_model: Type[T], content: str) -> T:
     json_end = content.find("```", json_start)
     cleaned_json = clean_json_string(content[json_start:json_end].strip())
     obj = json.loads(cleaned_json)
+
+    if isinstance(response_model, str):
+        response_model = _create_pydantic_model_from_json_schema(response_model)
 
     try:
         if issubclass(response_model, BaseModel):

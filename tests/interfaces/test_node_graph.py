@@ -16,6 +16,7 @@ from horsona.interface.node_graph.node_graph_models import (
     ListResourcesResponse,
     NodeArgument,
     ResourceResponse,
+    SchemaArgument,
     StrArgument,
     create_argument,
 )
@@ -52,7 +53,6 @@ async def test_post_resource(client):
             "value": FloatArgument(value=1.0).model_dump(),
         },
     )
-    print(create_float_value_response.json())
     assert create_float_value_response.status_code == status.HTTP_200_OK
     create_float_value_obj = ResourceResponse(**create_float_value_response.json())
 
@@ -81,6 +81,18 @@ async def test_post_resource(client):
     assert create_llm_response.status_code == status.HTTP_200_OK
     create_llm_obj = ResourceResponse(**create_llm_response.json())
     assert isinstance(create_llm_obj.result, NodeArgument)
+
+    derive_value_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{Value.__module__}/{Value.__name__}.derive",
+        json={
+            "self": create_float_value_obj.result.model_dump(),
+            "value": FloatArgument(value=2.0).model_dump(),
+        },
+    )
+    assert derive_value_response.status_code == status.HTTP_200_OK
+    derive_value_obj = ResourceResponse(**derive_value_response.json())
+    assert derive_value_obj.data["datatype"] == StrArgument(value="Some number")
+    assert derive_value_obj.data["value"] == FloatArgument(value=2.0)
 
 
 @pytest.mark.asyncio
@@ -284,8 +296,6 @@ async def test_list_resources(client):
 
     # Verify that the created Value object is in the list of resources
     assert len(list_resources_obj.resources) == 1
-    print(list_resources_obj.resources[0])
-    print(create_value_obj)
     assert list_resources_obj.resources[0] == create_value_obj
 
 
@@ -297,31 +307,78 @@ async def test_openapi(client):
     openapi_response: Response = client.get("/api/openapi.json")
     assert openapi_response.status_code == status.HTTP_200_OK
 
-    assert len(node_graph.skipped_functions) == 0
+
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_skipped_functions(client):
+    node_graph.configure()
+
+    openapi_response: Response = client.get("/api/openapi.json")
+    assert (
+        len(node_graph.skipped_functions) == 0
+    ), f"Node Graph API skipped {len(node_graph.skipped_functions)} functions"
 
 
-async def extract_pony_name(llm: AsyncLLMEngine, text: Value[str]):
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_llm_query_object(client):
+    # Test backpropagation through API
     from pydantic import BaseModel
 
-    from horsona.autodiff.functions import extract_object
+    from horsona.config import get_llm
+    from horsona.llm.base_engine import AsyncLLMEngine
+
+    node_graph.configure()
 
     class PonyName(BaseModel):
         name: str
 
-    return await extract_object(
-        llm, PonyName, TEXT=text, TASK="Extract the name from the TEXT."
+    # Create a session
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
+
+    # Create an LLM engine
+    create_llm_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{get_llm.__module__}/{get_llm.__name__}",
+        json={"name": StrArgument(value="reasoning_llm").model_dump()},
     )
+    assert create_llm_response.status_code == status.HTTP_200_OK
+    create_llm_obj = ResourceResponse(**create_llm_response.json())
+
+    # Create input text Value
+    create_text_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{AsyncLLMEngine.__module__}/{AsyncLLMEngine.__name__}.{AsyncLLMEngine.query_object.__name__}",
+        json={
+            "self": create_llm_obj.result.model_dump(),
+            "response_model": SchemaArgument(
+                value=PonyName.model_json_schema()
+            ).model_dump(),
+            "TASK": StrArgument(value="Give me Twilight Sparkle's name.").model_dump(),
+        },
+    )
+    assert create_text_response.status_code == status.HTTP_200_OK
+    response_obj = ResourceResponse(**create_text_response.json())
+
+    assert response_obj.result.value["name"] == StrArgument(value="Twilight Sparkle")
 
 
 @pytest.mark.asyncio
 @pytest.mark.xdist_group(name="node_graph_sequential")
 async def test_backpropagation(client):
     # Test backpropagation through API
+    from pydantic import BaseModel
+
     from horsona.autodiff.basic import HorseVariable
+    from horsona.autodiff.functions import extract_object
     from horsona.autodiff.losses import apply_loss
     from horsona.config import get_llm
 
-    node_graph.configure(extra_modules=[extract_pony_name.__module__])
+    node_graph.configure()
+
+    class PonyName(BaseModel):
+        name: str
 
     # Create a session
     create_session_response: Response = client.post("/api/sessions")
@@ -351,10 +408,14 @@ async def test_backpropagation(client):
 
     # Get the pony's name
     extract_name_response: Response = client.post(
-        f"/api/sessions/{session_id}/resources/{extract_pony_name.__module__}/{extract_pony_name.__name__}",
+        f"/api/sessions/{session_id}/resources/{extract_object.__module__}/{extract_object.__name__}",
         json={
             "llm": create_llm_obj.result.model_dump(),
-            "text": create_text_obj.result.model_dump(),
+            "model_cls": SchemaArgument(
+                value=PonyName.model_json_schema()
+            ).model_dump(),
+            "TEXT": create_text_obj.result.model_dump(),
+            "TASK": StrArgument(value="Extract the name from the TEXT.").model_dump(),
         },
     )
     assert (
@@ -417,5 +478,4 @@ async def test_backpropagation(client):
     )
     assert get_text_response.status_code == status.HTTP_200_OK
     get_text_obj = ResourceResponse(**get_text_response.json())
-    print(get_text_obj)
     assert get_text_obj.data["value"] == StrArgument(value="Hello Princess Celestia.")

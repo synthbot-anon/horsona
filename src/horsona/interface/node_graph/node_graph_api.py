@@ -1,17 +1,21 @@
 import abc
 import asyncio
+import contextlib
 import importlib
 import inspect
+import json
 import pkgutil
 import re
 import types
 import typing
 from contextlib import asynccontextmanager
 from inspect import signature
+from io import StringIO
 from time import time
 from types import NoneType, UnionType
 from uuid import uuid4
 
+from datamodel_code_generator import DataModelType, InputFileType, generate
 from fastapi import APIRouter, Body, FastAPI, HTTPException, Request, status
 
 from horsona.autodiff.basic import HorseData, HorseVariable
@@ -99,6 +103,48 @@ def configure(
         asyncio.create_task(reset_session_cleanup_task())
 
 
+def _create_pydantic_model_from_json_schema(
+    json_schema: str, model_name: str = "GeneratedModel"
+) -> type[BaseModel]:
+    """
+    Creates a Pydantic model from a JSON schema string using datamodel-code-generator
+    without creating a separate file or module.
+
+    Args:
+        json_schema: JSON schema as a string
+        model_name: Name for the generated model class
+
+    Returns:
+        A Pydantic model class
+    """
+    # Generate the Python code as a string
+    output = StringIO()
+    with contextlib.redirect_stdout(output):
+        generate(
+            input_=json_schema,
+            input_file_type=InputFileType.JsonSchema,
+            output_model_type=DataModelType.PydanticV2BaseModel,
+            class_name=model_name,
+        )
+
+    # Get the generated code
+    generated_code = output.getvalue()
+
+    # Create a namespace with required imports
+    namespace = {}
+
+    # Execute the generated code in the namespace
+    exec(generated_code, namespace, namespace)
+
+    # Add the required imports to the global namespace
+    for k, v in namespace.items():
+        if k not in globals() and k != model_name:
+            globals()[k] = v
+
+    # Return the model class from the namespace
+    return namespace[model_name]
+
+
 def _get_param_annotation(annotation) -> type:
     """
     Convert Python type annotations into corresponding Argument types for the node graph.
@@ -148,7 +194,20 @@ def _get_param_annotation(annotation) -> type:
     elif origin == None:
         return NoneArgument
     elif origin == Union:
-        return Union[tuple(_get_param_annotation(arg) for arg in annotation.__args__)]
+        if NoneType in annotation.__args__:
+            return Optional[
+                Union[
+                    tuple(
+                        _get_param_annotation(arg)
+                        for arg in annotation.__args__
+                        if arg != NoneType
+                    )
+                ]
+            ]
+        else:
+            return Union[
+                tuple(_get_param_annotation(arg) for arg in annotation.__args__)
+            ]
     elif origin == Optional:
         return Optional[_get_param_annotation(annotation.__args__[0])]
     elif origin == typing.Type:
@@ -161,6 +220,8 @@ def _get_param_annotation(annotation) -> type:
         else:
             return NodeArgument
     elif inspect.isclass(origin):
+        if issubclass(origin, BaseModel):
+            return SchemaArgument
         return NodeArgument
     elif isinstance(origin, str):
         return NodeArgument
@@ -204,7 +265,11 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     new_annotations = {}
     for param in orig_params:
         # Handle self parameter for class methods
-        if param == "self" and orig_annotations.get(param) == None:
+        if (
+            param == "self"
+            and orig_annotations.get(param) == None
+            and method_obj.__name__ != "__init__"
+        ):
             new_annotation = NodeArgument
             new_annotations["self"] = NodeArgument
             continue
@@ -214,6 +279,8 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
             if orig_spec.varkw == param:
                 new_annotation = DictArgument
                 new_annotations[param] = DictArgument
+                continue
+            if param == "self" and method_obj.__name__ == "__init__":
                 continue
             print(f"Skipping {path} due to missing annotation for parameter {param}")
             skipped_functions.add(path)
@@ -245,14 +312,24 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     new_annotations.pop("return")
     response_model = ResourceResponse
 
+    num_kwargs = len(orig_spec.defaults) if orig_spec.defaults else 0
+    all_args = list(new_annotations.items())
+    positional_args = all_args[:-num_kwargs]
+    kwargs = all_args[-num_kwargs:]
+
     # Create the new method
     args = "\n    ".join(
         [
             f"{f}: {v.__repr__() if type(v).__module__ == 'typing' else v.__name__}"
-            for f, v in new_annotations.items()
+            for f, v in positional_args
+        ]
+        + [
+            f"{f}: {v.__repr__() if type(v).__module__ == 'typing' else v.__name__} = None"
+            for f, v in kwargs
         ]
     )
     args_name = "_".join(path.split("/")[-1].split("."))
+
     if args:
         ns = {x.__name__: x for x in _allowed_modules}
         ns.update(globals())
@@ -549,7 +626,7 @@ async def list_resources(session_id: str):
 
     resources = []
     for node in _sessions[session_id].resource_id_to_node.values():
-        data, result = pack_result(session_id, [], node.result_obj, recurse=True)
+        data, result = pack_result(session_id, [], node.result_obj)
         resources.append(
             ResourceResponse(
                 result=result,
@@ -614,7 +691,7 @@ async def get_resource(session_id: str, resource_id: int):
         )
 
     node: Resource = _sessions[session_id].resource_id_to_node[resource_id]
-    data, result = pack_result(session_id, [], node.result_obj, recurse=True)
+    data, result = pack_result(session_id, [], node.result_obj)
 
     return GetResourceResponse(
         result=result,
@@ -658,6 +735,8 @@ def unpack_argument(
             unpack_argument(session_id, key + [i], item)
             for i, item in enumerate(arg.value)
         }
+    elif arg.type == ArgumentType.SCHEMA:
+        return _create_pydantic_model_from_json_schema(json.dumps(arg.value))
     else:
         raise InvalidArgumentException(
             {
@@ -686,61 +765,58 @@ def create_obj_node(session_id: str, obj: Any) -> Resource:
 
 
 def pack_result(
-    session_id: str, key: list[str], obj: Any, recurse=True
+    session_id: str, key: list[str], obj: Any, recurse=None
 ) -> tuple[Optional[int], Argument | dict[str, Argument]]:
+    if recurse is None:
+        recurse = set()
+    else:
+        recurse = set(recurse)
+
     if obj is None:
         return None, NoneArgument(type="none", value=None)
     elif isinstance(obj, (int, float, str, bool)):
         return None, create_argument(type=type(obj).__name__, value=obj)
     elif isinstance(obj, list):
-        if recurse:
-            return None, ListArgument(
-                type="list",
-                value=[
-                    pack_result(session_id, key + [i], item, recurse=False)[1]
-                    for i, item in enumerate(obj)
-                ],
-            )
-        else:
+        if id(obj) in recurse:
             return None, UnsupportedArgument(type="unsupported", value=None)
+        recurse.add(id(obj))
+        return None, ListArgument(
+            value=[
+                pack_result(session_id, key + [i], item, recurse=recurse)[1]
+                for i, item in enumerate(obj)
+            ],
+        )
     elif isinstance(obj, dict):
-        if recurse:
-            return None, DictArgument(
-                type="dict",
-                value={
-                    k: pack_result(session_id, key + [k], v, recurse=False)[1]
-                    for k, v in obj.items()
-                },
-            )
-        else:
+        if id(obj) in recurse:
             return None, UnsupportedArgument(type="unsupported", value=None)
+        recurse.add(id(obj))
+        return None, DictArgument(
+            value={
+                k: pack_result(session_id, key + [k], v, recurse=recurse)[1]
+                for k, v in obj.items()
+            },
+        )
     elif isinstance(obj, tuple):
-        if recurse:
-            return None, TupleArgument(
-                type="tuple",
-                value=tuple(
-                    pack_result(session_id, key + [i], item, recurse=False)[1]
-                    for i, item in enumerate(obj)
-                ),
-            )
-        else:
+        if id(obj) in recurse:
             return None, UnsupportedArgument(type="unsupported", value=None)
+        recurse.add(id(obj))
+        return None, TupleArgument(
+            value=tuple(
+                pack_result(session_id, key + [i], item, recurse=recurse)[1]
+                for i, item in enumerate(obj)
+            ),
+        )
     elif isinstance(obj, set):
-        if recurse:
-            return None, SetArgument(
-                type="set",
-                value={
-                    pack_result(session_id, key + [i], item, recurse=False)[1]
-                    for i, item in enumerate(obj)
-                },
-            )
-        else:
+        if id(obj) in recurse:
             return None, UnsupportedArgument(type="unsupported", value=None)
+        recurse.add(id(obj))
+        return None, SetArgument(
+            value={
+                pack_result(session_id, key + [i], item, recurse=recurse)[1]
+                for i, item in enumerate(obj)
+            },
+        )
     elif isinstance(obj, HorseData):
-        if not recurse:
-            node = create_obj_node(session_id, obj)
-            return None, NodeArgument(type="node", value=node.id)
-
         result_node = create_obj_node(session_id, obj)
         result_dict = {}
         for attr_name, attr_value in obj.__dict__.items():
@@ -752,12 +828,29 @@ def pack_result(
                 continue
 
             else:
+                arg_recurse = set(recurse)
+                if (
+                    not isinstance(attr_value, (int, float, str, bool))
+                    and id(attr_value) in arg_recurse
+                ):
+                    result_dict[attr_name] = UnsupportedArgument(
+                        type="unsupported", value=None
+                    )
+                arg_recurse.add(id(attr_value))
                 result_dict[attr_name] = pack_result(
-                    session_id, key + [attr_name], attr_value, recurse=False
+                    session_id, key + [attr_name], attr_value, recurse=arg_recurse
                 )[1]
 
         return result_dict, NodeArgument(type="node", value=result_node.id)
 
+    elif isinstance(obj, BaseModel):
+        if id(obj) in recurse:
+            return None, UnsupportedArgument(type="unsupported", value=None)
+        recurse.add(id(obj))
+        return None, pack_result(session_id, key, obj.model_dump())[1]
+
+    elif inspect.isclass(obj) and obj.__name__ == "BaseModel":
+        return None, SchemaArgument(value=obj.model_json_schema())
     else:
         return None, UnsupportedArgument(type="unsupported", value=None)
 
@@ -811,7 +904,7 @@ async def post_resource(session_id, module_name, function_name, body: dict = Bod
 
     result = await execute(module_name, class_name, function_name, processed_kwargs)
 
-    result_data, result_argument = pack_result(session_id, [], result, recurse=True)
+    result_data, result_argument = pack_result(session_id, [], result)
 
     return ResourceResponse(
         result=result_argument,

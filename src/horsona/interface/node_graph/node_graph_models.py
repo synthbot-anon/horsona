@@ -1,7 +1,7 @@
 from enum import StrEnum, auto
-from typing import Any, Generic, Literal, Optional, Self, Union
+from typing import Any, Literal, Optional, Self, Union
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, model_validator
 
 
 class ArgumentType(StrEnum):
@@ -15,6 +15,7 @@ class ArgumentType(StrEnum):
     DICT = auto()
     TUPLE = auto()
     SET = auto()
+    SCHEMA = auto()
     NODE = auto()
 
 
@@ -54,7 +55,9 @@ class ListArgument(BaseModel):
 
     @model_validator(mode="after")
     def validate_list(self) -> Self:
-        self.value = [create_argument(**x) for x in self.value]
+        self.value = [
+            x if isinstance(x, Argument) else create_argument(**x) for x in self.value
+        ]
         return self
 
 
@@ -64,7 +67,10 @@ class DictArgument(BaseModel):
 
     @model_validator(mode="after")
     def validate_dict(self) -> Self:
-        self.value = {k: create_argument(**v) for k, v in self.value.items()}
+        self.value = {
+            k: x if isinstance(x, Argument) else create_argument(**x)
+            for k, x in self.value.items()
+        }
         return self
 
 
@@ -74,7 +80,9 @@ class TupleArgument(BaseModel):
 
     @model_validator(mode="after")
     def validate_tuple(self) -> Self:
-        self.value = tuple([create_argument(**x) for x in self.value])
+        self.value = tuple(
+            [x if isinstance(x, Argument) else create_argument(**x) for x in self.value]
+        )
         return self
 
 
@@ -84,8 +92,15 @@ class SetArgument(BaseModel):
 
     @model_validator(mode="after")
     def validate_set(self) -> Self:
-        self.value = set([create_argument(**x) for x in self.value])
+        self.value = set(
+            [x if isinstance(x, Argument) else create_argument(**x) for x in self.value]
+        )
         return self
+
+
+class SchemaArgument(BaseModel):
+    type: Literal[ArgumentType.SCHEMA] = ArgumentType.SCHEMA
+    value: dict
 
 
 class NodeArgument(BaseModel):
@@ -104,6 +119,7 @@ Argument = Union[
     DictArgument,
     TupleArgument,
     SetArgument,
+    SchemaArgument,
     NodeArgument,
 ]
 
@@ -131,6 +147,8 @@ def create_argument(type: ArgumentType, value: Any) -> Argument:
         return SetArgument(value=value)
     elif type == ArgumentType.NODE:
         return NodeArgument(value=value)
+    elif type == ArgumentType.SCHEMA:
+        return SchemaArgument(value=value)
     else:
         raise ValueError(f"Unsupported argument type: {type}")
 

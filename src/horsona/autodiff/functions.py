@@ -65,7 +65,8 @@ async def assign_feedback(
         TASK=(
             "The INPUTS have the format <name>value</name>. "
             "The FEEDBACK was given when extracting RESULT from INPUTS. "
-            f"Based on the errors, determine which list of FEEDBACK items applies for each INPUT {list(inputs.keys())}."
+            f"Based on the errors, determine which list of FEEDBACK items applies for each INPUT {list(inputs.keys())}. "
+            "Use the FEEDBACK values, not indices."
         ),
     )
 
