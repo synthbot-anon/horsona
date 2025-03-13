@@ -2,7 +2,6 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from typing import Any, Generic, Optional, TypeVar
 
-import pandas as pd
 from pydantic import BaseModel
 
 
