@@ -21,7 +21,7 @@ RUN pipx run poetry install -C /home/celestia/node_graph_server
 
 USER celestia
 WORKDIR /host
-ENTRYPOINT ["pipx", "run", "poetry", "-C", "/home/celestia/node_graph_server", "run", \
+ENTRYPOINT ["pipx", "run", "poetry", "-P", "/home/celestia/node_graph_server", "run", \
             "python", "-m", "node_graph_server"]
 CMD ["--host", "0.0.0.0", "--port", "8000"]
 
