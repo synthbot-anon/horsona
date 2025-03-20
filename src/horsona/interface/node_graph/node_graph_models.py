@@ -1,7 +1,8 @@
 from enum import StrEnum, auto
 from typing import Any, Literal, Optional, Self, Union
 
-from pydantic import BaseModel, model_validator
+from anthropic import NoneType
+from pydantic import BaseModel, Field, model_validator
 
 
 class ArgumentType(StrEnum):
@@ -21,12 +22,12 @@ class ArgumentType(StrEnum):
 
 class NoneArgument(BaseModel):
     type: Literal[ArgumentType.NONE] = ArgumentType.NONE
-    value: Optional[Any] = None
+    value: NoneType = None
 
 
 class UnsupportedArgument(BaseModel):
     type: Literal[ArgumentType.UNSUPPORTED] = ArgumentType.UNSUPPORTED
-    value: Optional[Any] = None
+    value: NoneType = None
 
 
 class StrArgument(BaseModel):
@@ -174,7 +175,7 @@ class KeepAliveResponse(BaseModel):
 
 class ResourceResponse(BaseModel):
     result: Argument
-    data: Optional[dict[str, Argument]] = None
+    data: Optional[dict[str, Argument]] = Field(default=None, nullable=True)
 
 
 class ListResourcesResponse(BaseModel):

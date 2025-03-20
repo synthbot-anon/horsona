@@ -238,6 +238,14 @@ class DependencyOverride:
     use_cache: bool = False
 
 
+def _is_optional_type(arg: type) -> bool:
+    return (
+        hasattr(arg, "__args__")
+        and arg.__origin__ == typing.Union
+        and NoneType in arg.__args__
+    )
+
+
 def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     """
     Create a FastAPI route for a given method with appropriate argument types.
@@ -315,20 +323,29 @@ def _create_route(app: FastAPI, path: str, method_obj: Any) -> dict[str, Any]:
     new_annotations.pop("return")
     response_model = ResourceResponse
 
-    num_kwargs = len(orig_spec.defaults) if orig_spec.defaults else 0
     all_args = list(new_annotations.items())
-    positional_args = all_args[:-num_kwargs]
-    kwargs = all_args[-num_kwargs:]
+
+    num_defaults = len(orig_spec.defaults) if orig_spec.defaults else 0
+    default_args_start = len(orig_spec.args) - num_defaults
+    default_args = all_args[default_args_start:]
+    required_args = all_args[:default_args_start]
+
+    nullable_args = [(f, v) for f, v in required_args if _is_optional_type(v)]
+    non_nullable_args = [(f, v) for f, v in required_args if not _is_optional_type(v)]
 
     # Create the new method
     args = "\n    ".join(
         [
             f"{f}: {v.__repr__() if type(v).__module__ == 'typing' else v.__name__}"
-            for f, v in positional_args
+            for f, v in non_nullable_args
         ]
         + [
-            f"{f}: {v.__repr__() if type(v).__module__ == 'typing' else v.__name__} = None"
-            for f, v in kwargs
+            f"{f}: {v.__repr__() if type(v).__module__ == 'typing' else v.__name__} = Field(default=None, nullable=True)"
+            for f, v in nullable_args
+        ]
+        + [
+            f"{f}: {v.__repr__() if type(v).__module__ == 'typing' else v.__name__} = Field(default=None, nullable=True)"
+            for f, v in default_args
         ]
     )
     args_name = "_".join(path.split("/")[-1].split("."))
