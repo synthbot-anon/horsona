@@ -37,6 +37,7 @@ def load_llms() -> dict[str, "AsyncLLMEngine"]:
     from horsona.llm.groq_engine import AsyncGroqEngine
     from horsona.llm.multi_engine import create_multi_engine
     from horsona.llm.openai_engine import AsyncOpenAIEngine
+    from horsona.llm.openrouter_engine import AsyncOpenRouterEngine
     from horsona.llm.perplexity_engine import AsyncPerplexityEngine
     from horsona.llm.together_engine import AsyncTogetherEngine
 
@@ -81,6 +82,13 @@ def load_llms() -> dict[str, "AsyncLLMEngine"]:
             elif engine_type == "AsyncGrokEngine":
                 llms[name] = AsyncGrokEngine(
                     model=model, rate_limits=rate_limits, name=name
+                )
+            elif engine_type == "AsyncOpenRouterEngine":
+                llms[name] = AsyncOpenRouterEngine(
+                    model=model,
+                    url=params.get("url", "https://openrouter.ai/api/v1"),
+                    rate_limits=rate_limits,
+                    name=name,
                 )
             elif engine_type == "AsyncPerplexityEngine":
                 llms[name] = AsyncPerplexityEngine(
