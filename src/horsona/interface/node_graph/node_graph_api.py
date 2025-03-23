@@ -757,7 +757,7 @@ def unpack_argument(
             for i, item in enumerate(arg.value)
         }
     elif arg.type == ArgumentType.SCHEMA:
-        return _create_pydantic_model_from_json_schema(json.dumps(arg.value))
+        return _create_pydantic_model_from_json_schema(arg.value)
     else:
         raise InvalidArgumentException(
             {

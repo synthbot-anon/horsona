@@ -1,4 +1,5 @@
 import asyncio
+import json
 
 import pytest
 from fastapi import FastAPI, Response, status
@@ -357,7 +358,7 @@ async def test_llm_query_object(client):
         json={
             "self": create_llm_obj.result.model_dump(),
             "response_model": SchemaArgument(
-                value=PonyName.model_json_schema()
+                value=json.dumps(PonyName.model_json_schema())
             ).model_dump(),
             "TASK": StrArgument(value="Give me Twilight Sparkle's name.").model_dump(),
         },
