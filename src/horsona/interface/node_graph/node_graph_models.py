@@ -1,7 +1,7 @@
 from enum import StrEnum, auto
+from types import NoneType
 from typing import Any, Literal, Optional, Self, Union
 
-from anthropic import NoneType
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -101,7 +101,7 @@ class SetArgument(BaseModel):
 
 class SchemaArgument(BaseModel):
     type: Literal[ArgumentType.SCHEMA] = ArgumentType.SCHEMA
-    value: dict
+    value: str
 
 
 class NodeArgument(BaseModel):

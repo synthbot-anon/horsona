@@ -4,12 +4,16 @@ import pytest
 from fastapi import FastAPI, Response, status
 from fastapi.testclient import TestClient
 
+from horsona.autodiff.basic import HorseVariable
+from horsona.autodiff.losses import apply_loss
 from horsona.autodiff.variables import Value
+from horsona.character.dialogue import DialogueModule
 from horsona.interface import node_graph
 from horsona.interface.node_graph.node_graph_api import Argument, ArgumentType
 from horsona.interface.node_graph.node_graph_models import (
     Argument,
     CreateSessionResponse,
+    DictArgument,
     FloatArgument,
     IntArgument,
     ListArgument,
@@ -479,3 +483,178 @@ async def test_backpropagation(client):
     assert get_text_response.status_code == status.HTTP_200_OK
     get_text_obj = ResourceResponse(**get_text_response.json())
     assert get_text_obj.data["value"] == StrArgument(value="Hello Princess Celestia.")
+
+
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_dialogue_module(client):
+    # Test dialogue module through API
+    from pydantic import BaseModel
+
+    from horsona.autodiff.basic import HorseVariable
+    from horsona.autodiff.losses import apply_loss
+    from horsona.character.dialogue import DialogueModule, DialogueResponse
+    from horsona.config import get_llm
+
+    node_graph.configure()
+
+    # Create a session
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
+
+    # Create an LLM engine
+    create_llm_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{get_llm.__module__}/{get_llm.__name__}",
+        json={"name": StrArgument(value="reasoning_llm").model_dump()},
+    )
+    assert create_llm_response.status_code == status.HTTP_200_OK
+    create_llm_obj = ResourceResponse(**create_llm_response.json())
+
+    # Create character sheet Value
+    character_sheet_data = {
+        "name": {"type": "str", "value": "Twilight Sparkle"},
+        "occupation": {"type": "str", "value": "Princess of Friendship"},
+        "personality": {"type": "str", "value": "Intelligent, organized, and studious"},
+        "background": {
+            "type": "str",
+            "value": "Student and protege of Princess Celestia",
+        },
+        "species": {"type": "str", "value": "Alicorn"},
+    }
+
+    create_character_sheet_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{Value.__module__}/{Value.__name__}.__init__",
+        json={
+            "datatype": StrArgument(value="Character Sheet").model_dump(),
+            "value": DictArgument(value=character_sheet_data).model_dump(),
+            "llm": create_llm_obj.result.model_dump(),
+        },
+    )
+    assert create_character_sheet_response.status_code == status.HTTP_200_OK
+    create_character_sheet_obj = ResourceResponse(
+        **create_character_sheet_response.json()
+    )
+
+    # Create context Value
+    create_context_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{Value.__module__}/{Value.__name__}.__init__",
+        json={
+            "datatype": StrArgument(value="Story context").model_dump(),
+            "value": StrArgument(
+                value="Twilight Sparkle has just discovered an ancient magical artifact in the Everfree Forest."
+            ).model_dump(),
+            "llm": create_llm_obj.result.model_dump(),
+        },
+    )
+    assert create_context_response.status_code == status.HTTP_200_OK
+    create_context_obj = ResourceResponse(**create_context_response.json())
+
+    # Create DialogueModule
+    create_dialogue_module_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{DialogueModule.__module__}/{DialogueModule.__name__}.__init__",
+        json={
+            "llm": create_llm_obj.result.model_dump(),
+        },
+    )
+    assert create_dialogue_module_response.status_code == status.HTTP_200_OK
+    create_dialogue_module_obj = ResourceResponse(
+        **create_dialogue_module_response.json()
+    )
+
+    # Generate dialogue
+    generate_dialogue_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{DialogueModule.__module__}/{DialogueModule.__name__}.generate_dialogue",
+        json={
+            "self": create_dialogue_module_obj.result.model_dump(),
+            "character_sheet": create_character_sheet_obj.result.model_dump(),
+            "context": create_context_obj.result.model_dump(),
+        },
+    )
+    assert generate_dialogue_response.status_code == status.HTTP_200_OK
+    generate_dialogue_obj = ResourceResponse(**generate_dialogue_response.json())
+
+    # Verify dialogue value
+    get_dialogue_response: Response = client.get(
+        f"/api/sessions/{session_id}/resources/{generate_dialogue_obj.result.value}"
+    )
+    assert get_dialogue_response.status_code == status.HTTP_200_OK
+    get_dialogue_obj = ResourceResponse(**get_dialogue_response.json())
+
+    # Assert dialogue properties
+    print("dialogue:", get_dialogue_obj.data)
+    assert "dialogue" in get_dialogue_obj.data
+    assert get_dialogue_obj.data["dialogue"].value != ""
+    assert "tone" in get_dialogue_obj.data
+    assert get_dialogue_obj.data["tone"].value != ""
+    assert "subtext" in get_dialogue_obj.data
+    assert get_dialogue_obj.data["subtext"].value != ""
+
+    # Apply context loss
+    context_loss_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{apply_loss.__module__}/{apply_loss.__name__}",
+        json={
+            "arg": generate_dialogue_obj.result.model_dump(),
+            "loss": StrArgument(
+                value="The artifact was found in the Tenochtitlan Basin, not the Everfree Forest."
+            ).model_dump(),
+        },
+    )
+    assert context_loss_response.status_code == status.HTTP_200_OK
+    context_loss_obj = ResourceResponse(**context_loss_response.json())
+
+    # Apply character loss
+    character_loss_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{apply_loss.__module__}/{apply_loss.__name__}",
+        json={
+            "arg": generate_dialogue_obj.result.model_dump(),
+            "loss": StrArgument(
+                value="Twilight is a unicorn, not an alicorn."
+            ).model_dump(),
+        },
+    )
+    assert character_loss_response.status_code == status.HTTP_200_OK
+    character_loss_obj = ResourceResponse(**character_loss_response.json())
+
+    # Add losses
+    add_loss_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{HorseVariable.__module__}/{HorseVariable.__name__}.__add__",
+        json={
+            "self": context_loss_obj.result.model_dump(),
+            "other": character_loss_obj.result.model_dump(),
+        },
+    )
+    assert add_loss_response.status_code == status.HTTP_200_OK
+    add_loss_obj = ResourceResponse(**add_loss_response.json())
+
+    # Apply backpropagation
+    step_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{HorseVariable.__module__}/{HorseVariable.__name__}.step",
+        json={
+            "self": add_loss_obj.result.model_dump(),
+            "params": ListArgument(
+                value=[
+                    create_context_obj.result.model_dump(),
+                    create_character_sheet_obj.result.model_dump(),
+                ],
+            ).model_dump(),
+        },
+    )
+    assert step_response.status_code == status.HTTP_200_OK
+
+    # Verify context was updated
+    get_context_response: Response = client.get(
+        f"/api/sessions/{session_id}/resources/{create_context_obj.result.value}"
+    )
+    assert get_context_response.status_code == status.HTTP_200_OK
+    get_context_obj = ResourceResponse(**get_context_response.json())
+    assert "tenochtitlan" in get_context_obj.data["value"].value.lower()
+
+    # Verify character sheet was updated
+    get_character_sheet_response: Response = client.get(
+        f"/api/sessions/{session_id}/resources/{create_character_sheet_obj.result.value}"
+    )
+    assert get_character_sheet_response.status_code == status.HTTP_200_OK
+    get_character_sheet_obj = ResourceResponse(**get_character_sheet_response.json())
+    assert "unicorn" in get_character_sheet_obj.data["value"].value["species"].lower()

@@ -17,6 +17,7 @@ from uuid import uuid4
 
 from datamodel_code_generator import DataModelType, InputFileType, generate
 from fastapi import APIRouter, Body, FastAPI, HTTPException, Request, status
+from pydantic import BaseModel
 
 from horsona.autodiff.basic import HorseData, HorseVariable
 
@@ -839,6 +840,7 @@ def pack_result(
     elif isinstance(obj, HorseData):
         result_node = create_obj_node(session_id, obj)
         result_dict = {}
+        recurse.add(id(obj))
         for attr_name, attr_value in obj.__dict__.items():
             if isinstance(obj, HorseVariable) and attr_name in (
                 "predecessors",
@@ -856,7 +858,6 @@ def pack_result(
                     result_dict[attr_name] = UnsupportedArgument(
                         type="unsupported", value=None
                     )
-                arg_recurse.add(id(attr_value))
                 result_dict[attr_name] = pack_result(
                     session_id, key + [attr_name], attr_value, recurse=arg_recurse
                 )[1]
@@ -867,10 +868,10 @@ def pack_result(
         if id(obj) in recurse:
             return None, UnsupportedArgument(type="unsupported", value=None)
         recurse.add(id(obj))
-        return None, pack_result(session_id, key, obj.model_dump())[1]
+        return pack_result(session_id, key, obj.model_dump_json(), recurse=recurse)
 
-    elif inspect.isclass(obj) and obj.__name__ == "BaseModel":
-        return None, SchemaArgument(value=obj.model_json_schema())
+    elif inspect.isclass(obj) and hasattr(obj, "model_json_schema"):
+        return None, SchemaArgument(value=json.dumps(obj.model_json_schema()))
     else:
         return None, UnsupportedArgument(type="unsupported", value=None)
 
