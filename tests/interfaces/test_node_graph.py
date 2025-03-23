@@ -448,29 +448,20 @@ async def test_json_schema(client):
                 value="""{
   "type": "object",
   "properties": {
-    "pose": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "facial_expression": {
-      "type": [
-        "string",
-        "null"
-      ]
-    },
-    "body_language": {
-      "type": [
-        "string",
-        "null"
+    "color": {
+      "type": "string",
+      "enum": [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "blue",
+        "purple"
       ]
     }
   },
   "required": [
-    "pose",
-    "facial_expression",
-    "body_language"
+    "color"
   ]
 }"""
             ).model_dump(),
@@ -479,6 +470,7 @@ async def test_json_schema(client):
     )
     assert create_text_response.status_code == status.HTTP_200_OK
     response_obj = ResourceResponse(**create_text_response.json())
+    print("response_obj:", response_obj.result.value)
 
 
 @pytest.mark.asyncio

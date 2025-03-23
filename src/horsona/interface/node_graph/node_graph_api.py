@@ -9,6 +9,7 @@ import re
 import types
 import typing
 from contextlib import asynccontextmanager
+from enum import Enum
 from inspect import signature
 from io import StringIO
 from time import time
@@ -840,6 +841,8 @@ def pack_result(
                 for i, item in enumerate(obj)
             },
         )
+    elif isinstance(obj, Enum):
+        return pack_result(session_id, key, obj.value)
     elif isinstance(obj, HorseData):
         result_node = create_obj_node(session_id, obj)
         result_dict = {}
