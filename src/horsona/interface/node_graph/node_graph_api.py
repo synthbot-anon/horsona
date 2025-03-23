@@ -13,6 +13,7 @@ from inspect import signature
 from io import StringIO
 from time import time
 from types import NoneType, UnionType
+from typing import Optional
 from uuid import uuid4
 
 from datamodel_code_generator import DataModelType, InputFileType, generate
