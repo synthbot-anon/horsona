@@ -371,6 +371,118 @@ async def test_llm_query_object(client):
 
 @pytest.mark.asyncio
 @pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_llm_query_object(client):
+    # Test backpropagation through API
+    from pydantic import BaseModel
+
+    from horsona.config import get_llm
+    from horsona.llm.base_engine import AsyncLLMEngine
+
+    node_graph.configure()
+
+    class PonyName(BaseModel):
+        name: str
+
+    # Create a session
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
+
+    # Create an LLM engine
+    create_llm_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{get_llm.__module__}/{get_llm.__name__}",
+        json={"name": StrArgument(value="reasoning_llm").model_dump()},
+    )
+    assert create_llm_response.status_code == status.HTTP_200_OK
+    create_llm_obj = ResourceResponse(**create_llm_response.json())
+
+    # Create input text Value
+    create_text_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{AsyncLLMEngine.__module__}/{AsyncLLMEngine.__name__}.{AsyncLLMEngine.query_object.__name__}",
+        json={
+            "self": create_llm_obj.result.model_dump(),
+            "response_model": SchemaArgument(
+                value=json.dumps(PonyName.model_json_schema())
+            ).model_dump(),
+            "TASK": StrArgument(value="Give me Twilight Sparkle's name.").model_dump(),
+        },
+    )
+    assert create_text_response.status_code == status.HTTP_200_OK
+    response_obj = ResourceResponse(**create_text_response.json())
+
+    assert response_obj.result.value["name"] == StrArgument(value="Twilight Sparkle")
+
+
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
+async def test_json_schema(client):
+    # Test backpropagation through API
+    from pydantic import BaseModel
+
+    from horsona.config import get_llm
+    from horsona.llm.base_engine import AsyncLLMEngine
+
+    node_graph.configure()
+
+    # Create a session
+    create_session_response: Response = client.post("/api/sessions")
+    assert create_session_response.status_code == status.HTTP_200_OK
+    create_session_obj = CreateSessionResponse(**create_session_response.json())
+    session_id = create_session_obj.session_id
+
+    # Create an LLM engine
+    create_llm_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{get_llm.__module__}/{get_llm.__name__}",
+        json={"name": StrArgument(value="reasoning_llm").model_dump()},
+    )
+    assert create_llm_response.status_code == status.HTTP_200_OK
+    create_llm_obj = ResourceResponse(**create_llm_response.json())
+
+    # Create input text Value
+    create_text_response: Response = client.post(
+        f"/api/sessions/{session_id}/resources/{AsyncLLMEngine.__module__}/{AsyncLLMEngine.__name__}.{AsyncLLMEngine.query_object.__name__}",
+        json={
+            "self": create_llm_obj.result.model_dump(),
+            "response_model": SchemaArgument(
+                value="""{
+  "type": "object",
+  "properties": {
+    "pose": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "facial_expression": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "body_language": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "pose",
+    "facial_expression",
+    "body_language"
+  ]
+}"""
+            ).model_dump(),
+            "TASK": StrArgument(value="Give me Twilight Sparkle's name.").model_dump(),
+        },
+    )
+    assert create_text_response.status_code == status.HTTP_200_OK
+    response_obj = ResourceResponse(**create_text_response.json())
+
+
+@pytest.mark.asyncio
+@pytest.mark.xdist_group(name="node_graph_sequential")
 async def test_backpropagation(client):
     # Test backpropagation through API
     from pydantic import BaseModel

@@ -13,7 +13,6 @@ from inspect import signature
 from io import StringIO
 from time import time
 from types import NoneType, UnionType
-from typing import Optional
 from uuid import uuid4
 
 from datamodel_code_generator import DataModelType, InputFileType, generate
@@ -142,9 +141,12 @@ def _create_pydantic_model_from_json_schema(
     exec(generated_code, namespace, namespace)
 
     # Add the required imports to the global namespace
-    for k, v in namespace.items():
-        if k not in globals() and k != model_name:
-            globals()[k] = v
+    # for k, v in namespace.items():
+    #     if k not in globals() and k != model_name:
+    #         print('adding', k, 'to globals')
+    #         globals()[k] = v
+
+    exec(f"{model_name}.model_rebuild()", namespace, namespace)
 
     # Return the model class from the namespace
     return namespace[model_name]

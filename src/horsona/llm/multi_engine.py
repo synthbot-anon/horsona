@@ -118,6 +118,10 @@ class MultiEngine(HorseData, Generic[T]):
                         _backoffs[selection] = -1
                         return result
                     except Exception as e:
+                        # print stack trace
+                        import traceback
+
+                        print(traceback.format_exc())
                         last_exception = e
 
                         if selection in _backoffs:
