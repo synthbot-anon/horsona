@@ -868,7 +868,7 @@ def pack_result(
         if id(obj) in recurse:
             return None, UnsupportedArgument(type="unsupported", value=None)
         recurse.add(id(obj))
-        return pack_result(session_id, key, obj.model_dump_json(), recurse=recurse)
+        return pack_result(session_id, key, obj.model_dump(), recurse=recurse)
 
     elif inspect.isclass(obj) and hasattr(obj, "model_json_schema"):
         return None, SchemaArgument(value=json.dumps(obj.model_json_schema()))
