@@ -1,0 +1,21 @@
+
+[tool.poetry]
+name = "audio"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+  "Empycryst <empycryst@tutamail.com>"
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pyaudio = "^0.2.14"
+websockets = "^14.1"
+horsona = { git = "https://github.com/synthbot-anon/horsona" }
+aiofiles = "*"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
